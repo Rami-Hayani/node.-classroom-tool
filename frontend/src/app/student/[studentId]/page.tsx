@@ -110,7 +110,8 @@ export default function StudentView() {
     return () => { cancelled = true; };
   }, [courseId, studentId]);
 
-  // Poll for the latest live lecture every 5s so we auto-join when RTMS creates one
+  // Poll for the latest live lecture every 5s so enrolled students auto-join
+  // the class started directly by their professor.
   useEffect(() => {
     if (!courseId) return;
 
@@ -122,22 +123,21 @@ export default function StudentView() {
           liveLectures.sort((a, b) => (b.started_at || "").localeCompare(a.started_at || ""));
           const live = liveLectures[0];
           if (live) {
+            setLectureEnded(false);
             setLectureId((prev) => {
               if (prev !== live.id) {
                 localStorage.setItem("lectureId", live.id);
               }
               return live.id;
             });
-          } else if (!lectureId) {
-            const storedLecture = localStorage.getItem("lectureId");
-            if (storedLecture) setLectureId(storedLecture);
+          } else {
+            const hadLecture = Boolean(lectureId || localStorage.getItem("lectureId"));
+            setLectureId(null);
+            setLectureEnded(hadLecture);
+            localStorage.removeItem("lectureId");
           }
         })
         .catch(() => {
-          if (!lectureId) {
-            const storedLecture = localStorage.getItem("lectureId");
-            if (storedLecture) setLectureId(storedLecture);
-          }
         });
     };
 
@@ -209,6 +209,8 @@ export default function StudentView() {
     "lecture:ended",
     useCallback(() => {
       setLectureEnded(true);
+      setLectureId(null);
+      localStorage.removeItem("lectureId");
     }, []),
   );
 
@@ -272,7 +274,7 @@ export default function StudentView() {
             ) : (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs text-gray-400">Live Lecture</span>
+                <span className="text-xs text-gray-400">{lectureId ? "Live Lecture" : "Waiting for class"}</span>
               </>
             )}
           </div>

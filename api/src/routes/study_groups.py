@@ -48,11 +48,6 @@ def calculate_complementarity(mastery1, mastery2, concept_ids):
     return total_diff / valid if valid > 0 else 0.0
 
 
-def generate_zoom_link():
-    """Return Jason's personal Zoom meeting room link."""
-    return "https://us06web.zoom.us/j/3285887393?pwd=eht46wK2kfhskTMDizbmMHsx1ldLok.1"
-
-
 def _build_concept_comparison(my_mastery, partner_mastery, concept_nodes_map, my_concept_ids, partner_concept_ids):
     """
     Build per-concept comparison array for the match card.
@@ -112,14 +107,11 @@ def _find_match(student_id, course_id, concept_ids):
 
         # Create match directly without pool entry
         s1, s2 = sorted([student_id, partner_student['id']])
-        zoom_link = generate_zoom_link()
-
         match = supabase.table('study_group_matches').insert({
             'course_id': course_id,
             'student1_id': s1,
             'student2_id': s2,
             'concept_ids': shared_concepts,
-            'zoom_link': zoom_link,
             'complementarity_score': 0.5,
             'status': 'active'
         }).execute().data[0]
@@ -164,7 +156,6 @@ def _find_match(student_id, course_id, concept_ids):
             'myConceptLabels': my_labels,
             'partnerConceptLabels': partner_labels,
             'conceptComparison': comparison,
-            'zoomLink': zoom_link,
             'complementarityScore': 0.5
         }
 
@@ -221,14 +212,11 @@ def _find_match(student_id, course_id, concept_ids):
 
     # Create match
     s1, s2 = sorted([student_id, best['student_id']])  # canonical ordering
-    zoom_link = generate_zoom_link()
-
     match = supabase.table('study_group_matches').insert({
         'course_id': course_id,
         'student1_id': s1,
         'student2_id': s2,
         'concept_ids': best['concept_ids'],
-        'zoom_link': zoom_link,
         'status': 'active'
     }).execute().data[0]
 
@@ -282,7 +270,6 @@ def _find_match(student_id, course_id, concept_ids):
         'myConceptLabels': my_labels,
         'partnerConceptLabels': partner_labels,
         'conceptComparison': comparison,
-        'zoomLink': zoom_link,
         'complementarityScore': best['score']
     }
 
@@ -311,7 +298,6 @@ def opt_in(course_id):
                 {'conceptId': 'c4', 'label': 'Regularization', 'myConfidence': 0.7, 'partnerConfidence': 0.2, 'myColor': 'green', 'partnerColor': 'red'},
                 {'conceptId': 'c5', 'label': 'Gradient Descent', 'myConfidence': 0.8, 'partnerConfidence': 0.3, 'myColor': 'green', 'partnerColor': 'red'},
             ],
-            'zoomLink': 'https://us06web.zoom.us/j/3285887393?pwd=eht46wK2kfhskTMDizbmMHsx1ldLok.1',
             'complementarityScore': 0.68
         }), 200
 
@@ -484,7 +470,6 @@ def get_status(course_id):
             'myConceptLabels': my_labels,
             'partnerConceptLabels': partner_labels,
             'conceptComparison': comparison,
-            'zoomLink': match['zoom_link'],
             'createdAt': match['created_at']
         }
         cache_set(cache_key, result, ttl_seconds=30)

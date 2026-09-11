@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { COLOR_HEX } from "@/lib/colors";
 import { nextApi } from "@/lib/api";
+import { useSocketEvent } from "@/lib/socket";
 
 interface PollState {
   pollId: string | null;
@@ -15,9 +16,11 @@ interface PollState {
 
 interface PollControlsProps {
   lectureId: string | null;
+  concepts: { id: string; label: string }[];
+  activeConceptId: string | null;
 }
 
-export default function PollControls({ lectureId }: PollControlsProps) {
+export default function PollControls({ lectureId, concepts, activeConceptId }: PollControlsProps) {
   const [poll, setPoll] = useState<PollState>({
     pollId: null,
     question: null,
@@ -28,13 +31,30 @@ export default function PollControls({ lectureId }: PollControlsProps) {
   });
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedConceptId, setSelectedConceptId] = useState("");
+
+  useEffect(() => {
+    if (activeConceptId && concepts.some((c) => c.id === activeConceptId)) {
+      setSelectedConceptId(activeConceptId);
+    } else if (!selectedConceptId && concepts.length > 0) {
+      setSelectedConceptId(concepts[0].id);
+    }
+  }, [activeConceptId, concepts, selectedConceptId]);
+
+  useSocketEvent<{ pollId: string }>("poll:response-received", (data) => {
+    setPoll((current) => current.pollId === data.pollId
+      ? { ...current, totalResponses: current.totalResponses + 1 }
+      : current);
+  });
 
   async function handleGenerate() {
     if (!lectureId) return;
     setGenerating(true);
     setError(null);
     try {
-      const data = await nextApi.post(`/api/lectures/${lectureId}/poll/generate`, {});
+      const data = await nextApi.post(`/api/lectures/${lectureId}/poll/generate`, {
+        conceptId: selectedConceptId || undefined,
+      });
       setPoll({
         pollId: data.pollId,
         question: data.question,
@@ -99,9 +119,23 @@ export default function PollControls({ lectureId }: PollControlsProps) {
       <div className="space-y-3">
         {poll.status === "idle" && (
           <>
+            <label className="block text-xs text-gray-500">
+              Concept
+              <select
+                value={selectedConceptId}
+                onChange={(event) => setSelectedConceptId(event.target.value)}
+                disabled={!lectureId || concepts.length === 0 || generating}
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
+              >
+                {concepts.length === 0 && <option value="">No course concepts found</option>}
+                {concepts.map((concept) => (
+                  <option key={concept.id} value={concept.id}>{concept.label}</option>
+                ))}
+              </select>
+            </label>
             <button
               onClick={handleGenerate}
-              disabled={!lectureId || generating}
+              disabled={!lectureId || !selectedConceptId || generating}
               className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-800 text-white hover:bg-gray-700 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {generating ? "Generating..." : "Generate Question"}
@@ -138,7 +172,7 @@ export default function PollControls({ lectureId }: PollControlsProps) {
             <p className="text-sm text-gray-600">{poll.question}</p>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs text-gray-400">Waiting for responses...</span>
+              <span className="text-xs text-gray-500">Responses: {poll.totalResponses}</span>
             </div>
             <button
               onClick={handleClose}

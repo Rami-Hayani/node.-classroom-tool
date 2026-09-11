@@ -9,7 +9,6 @@ import ConceptTimeline, { type TimelineConcept } from "@/components/dashboard/Co
 import StudentList, { type StudentSummary } from "@/components/dashboard/StudentList";
 import PollControls from "@/components/dashboard/PollControls";
 import InterventionPanel from "@/components/dashboard/InterventionPanel";
-import ZoomSettingsDialog from "@/components/dashboard/ZoomSettingsDialog";
 import { useSocket, useSocketEvent, useSocketReady } from "@/lib/socket";
 import { flaskApi, nextApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -26,10 +25,11 @@ export default function ProfessorDashboard() {
   const [heatmapData, setHeatmapData] = useState<HeatmapConcept[]>([]);
   const [students, setStudents] = useState<StudentSummary[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
-  const [demoStarting, setDemoStarting] = useState(false);
+  const [classStarting, setClassStarting] = useState(false);
+  const [classEnding, setClassEnding] = useState(false);
+  const [connectedStudentCount, setConnectedStudentCount] = useState(0);
   const [activeConceptId, setActiveConceptId] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [zoomSettingsOpen, setZoomSettingsOpen] = useState(false);
 
   const socket = useSocket();
   const socketReady = useSocketReady();
@@ -82,7 +82,7 @@ export default function ProfessorDashboard() {
       .catch(() => {});
   }, [courseId]);
 
-  // Poll for the latest live lecture every 5s so we auto-join when RTMS creates one
+  // Poll for the latest live lecture every 5s so this dashboard stays in sync.
   useEffect(() => {
     if (!courseId) return;
 
@@ -117,23 +117,45 @@ export default function ProfessorDashboard() {
     }
   }, [socket, lectureId, socketReady]);
 
-  // Start Demo: create lecture → simulator auto-starts (DEMO_MODE=true)
-  async function handleStartDemo() {
-    if (!courseId || demoStarting) return;
-    setDemoStarting(true);
+  async function handleStartClass() {
+    if (!courseId || classStarting) return;
+    setClassStarting(true);
     try {
       const data = await nextApi.post("/api/lectures", {
         courseId,
-        title: "CS229 Lecture — Neural Networks & Backpropagation",
+        title: `Live Class — ${new Date().toLocaleString()}`,
       });
       setLectureId(data.id);
       localStorage.setItem("lectureId", data.id);
     } catch (err) {
-      console.error("Failed to start demo:", err);
+      console.error("Failed to start class:", err);
     } finally {
-      setDemoStarting(false);
+      setClassStarting(false);
     }
   }
+
+  async function handleEndClass() {
+    if (!lectureId || classEnding) return;
+    setClassEnding(true);
+    try {
+      await nextApi.put(`/api/lectures/${lectureId}`, {
+        status: "ended",
+        ended_at: new Date().toISOString(),
+      });
+      setLectureId(null);
+      setConnectedStudentCount(0);
+      localStorage.removeItem("lectureId");
+    } catch (err) {
+      console.error("Failed to end class:", err);
+    } finally {
+      setClassEnding(false);
+    }
+  }
+
+  useSocketEvent<{ count: number }>(
+    "lecture:presence",
+    useCallback((data) => setConnectedStudentCount(data.count), []),
+  );
 
   // Socket: transcript:chunk
   useSocketEvent<{ text: string; timestamp: number; speakerName?: string; detectedConcepts?: { id: string; label: string }[] }>(
@@ -257,6 +279,9 @@ export default function ProfessorDashboard() {
               <span className="text-[10px] font-medium text-emerald-600 uppercase tracking-wider">Live</span>
             </div>
           )}
+          {lectureId && (
+            <span className="text-xs text-gray-500">{connectedStudentCount} students connected</span>
+          )}
           {joinCode && (
             <button
               onClick={() => {
@@ -277,21 +302,23 @@ export default function ProfessorDashboard() {
           {!lectureId && (
             <Button
               size="sm"
-              onClick={handleStartDemo}
-              disabled={!courseId || demoStarting}
+              onClick={handleStartClass}
+              disabled={!courseId || classStarting}
               className="bg-gray-800 text-white hover:bg-gray-700 transition-all duration-200"
             >
-              {demoStarting ? "Starting..." : "Start Demo"}
+              {classStarting ? "Starting..." : "Start Class"}
             </Button>
           )}
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setZoomSettingsOpen(true)}
+            onClick={handleEndClass}
+            disabled={!lectureId || classEnding}
             className="text-gray-400 hover:text-gray-600"
-            title="Zoom Settings"
+            title="End Class"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            {classEnding ? "Ending..." : "End Class"}
           </Button>
           {user && (
             <Button
@@ -333,19 +360,15 @@ export default function ProfessorDashboard() {
           <ConceptTimeline concepts={timelineConcepts} />
         </div>
         <div className="grid grid-cols-2 gap-3 p-3">
-          <PollControls lectureId={lectureId} />
+          <PollControls
+            lectureId={lectureId}
+            concepts={heatmapData.map((c) => ({ id: c.id, label: c.label }))}
+            activeConceptId={activeConceptId}
+          />
           <InterventionPanel lectureId={lectureId} strugglingConceptIds={strugglingConceptIds} timelineConceptIds={timelineConcepts.map(c => c.id)} transcriptChunkCount={transcriptChunks.length} />
         </div>
       </div>
 
-      {/* Zoom Settings Dialog */}
-      {profile?.id && (
-        <ZoomSettingsDialog
-          open={zoomSettingsOpen}
-          onOpenChange={setZoomSettingsOpen}
-          teacherId={profile.id}
-        />
-      )}
     </div>
   );
 }

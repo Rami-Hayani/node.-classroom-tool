@@ -2,15 +2,15 @@
 
 **Your personal knowledge graph in every lecture.**
 
-A live learning copilot that turns lectures into personalized knowledge graphs. Students see their understanding update in real time as concepts are discussed and polls are answered; professors get a heatmap of class mastery and polls tied to the lecture.
+A browser-native live classroom that turns lectures into personalized knowledge graphs. Students see their understanding update in real time as polls are answered; professors get a heatmap of class mastery, connected-student presence, and interventions tied to the lecture.
 
 ## Features
 
 - **PDF → knowledge graph** — Upload course material; Claude extracts concepts and prerequisites (e.g. 35+ nodes from a 200-page textbook). Each student has their own graph; mastery is a confidence score (0–1) driven by polls, tutoring, and attendance.
-- **Live concept detection** — Zoom RTMS captures lecture audio; transcripts are run through concept detection (Claude Haiku) and pushed to student graphs and professor heatmap in real time via Socket.IO.
+- **Live classroom intelligence** — Teachers start a live class in the browser; optional transcript input and the demo simulator run through concept detection (Claude Haiku) and Socket.IO.
 - **Contextual polling** — AI generates poll questions from what was just said and targets concepts the class is struggling with. Responses update mastery and graph colors (red → yellow → green) instantly.
 - **Aaron (AI tutor)** — Post-lecture Socratic tutor (Claude Sonnet) personalized to each student’s weak nodes; Perplexity Sonar surfaces learning resources (articles, videos) for specific gaps.
-- **Study groups** — Match students by complementary strengths/weaknesses; one-click Zoom link and view of who can teach what.
+- **Study groups** — Match students by complementary strengths/weaknesses and chat about who can teach what.
 - **Professor dashboard** — Live heatmap by concept, per-student graphs, and in-lecture reinforcement suggestions (what to re-explain, which examples to add).
 
 ## Tech stack
@@ -20,7 +20,7 @@ A live learning copilot that turns lectures into personalized knowledge graphs. 
 | Frontend | Next.js, React, Tailwind CSS, react-force-graph-2d, Socket.IO |
 | Backend | Flask (Python), Supabase (PostgreSQL) |
 | AI | Claude Sonnet 4.5 (extraction, questions, tutoring), Claude Haiku 4.5 (detection, grading) |
-| Live | Zoom RTMS (audio/transcription), Perplexity Sonar (resources) |
+| Live | Socket.IO, optional transcript input, Perplexity Sonar (resources) |
 | Deploy | Render (frontend + API + Redis) |
 
 ## Prerequisites
@@ -28,7 +28,7 @@ A live learning copilot that turns lectures into personalized knowledge graphs. 
 - Python 3.10+
 - Node.js 18+
 - [Supabase](https://supabase.com) project
-- API keys: Anthropic (Claude), Perplexity; optionally Zoom, Deepgram
+- API keys: Anthropic (Claude), Perplexity
 
 ## Installation
 
@@ -38,7 +38,7 @@ cd prereq
 cp .env.example .env
 ```
 
-Edit `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `ANTHROPIC_API_KEY`, `PERPLEXITY_API_KEY`, and `FLASK_API_URL` (your Flask API base URL). Zoom keys for live RTMS with their SDK.
+Edit `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_JWT_SECRET`, `ANTHROPIC_API_KEY`, `PERPLEXITY_API_KEY`, and `FLASK_API_URL` (your Flask API base URL). Set `DEMO_MODE=true` only when you explicitly want the transcript simulator and demo auto-responder.
 
 Create the database tables in Supabase (SQL Editor).
 
@@ -49,7 +49,7 @@ Create the database tables in Supabase (SQL Editor).
 ```bash
 cd api
 pip install -r requirements.txt
-python main.py
+python app.py
 ```
 
 Then seed demo data (CS229-style course, ~35 concepts, 4 students):
@@ -66,12 +66,14 @@ npm install
 npm run dev
 ```
 
+In the professor dashboard, choose a course and click **Start Class**. Students enroll with the course join code, automatically join the active lecture, and receive questions over Socket.IO. Choose a concept in Poll Controls, generate a question, send it to students, and end the class with **End Class**.
+
 ## Project structure
 
 ```
 prereq/
 ├── api/                 # Flask backend
-│   ├── main.py
+│   ├── app.py
 │   ├── requirements.txt
 │   └── ...
 ├── frontend/            # Next.js + Socket.IO

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { User, Send, Loader2, MessageCircle, ExternalLink, ArrowRight, ArrowLeft, Clock } from "lucide-react";
+import { User, Send, Loader2, MessageCircle, ArrowRight, ArrowLeft, Clock } from "lucide-react";
 import { nextApi } from "@/lib/api";
 import { COLOR_HEX } from "@/lib/colors";
 
@@ -22,7 +22,6 @@ interface MatchDetails {
   myConceptLabels?: string[];
   partnerConceptLabels?: string[];
   conceptComparison?: ConceptComparison[];
-  zoomLink: string;
   complementarityScore: number;
 }
 
@@ -434,14 +433,9 @@ export default function MatchedCard({ matchDetails, partnerProfile, studentName,
         </div>
       )}
 
-      {/* Join Zoom call */}
-      <Button
-        onClick={() => window.open(matchDetails.zoomLink, '_blank', 'noopener,noreferrer')}
-        className="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 flex items-center justify-center gap-2"
-      >
-        <ExternalLink className="w-5 h-5" />
-        Join Zoom Call
-      </Button>
+      <p className="text-center text-xs text-gray-400">
+        Use the internal chat below to plan your study session.
+      </p>
     </div>
   );
 }

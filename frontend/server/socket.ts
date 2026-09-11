@@ -23,6 +23,16 @@ export function getStudentsInLecture(lectureId: string): string[] {
   return set ? Array.from(set) : [];
 }
 
+function emitPresence(lectureId: string): void {
+  const io = g.__socketIO;
+  if (!io) return;
+  const studentIds = getStudentsInLecture(lectureId);
+  io.to(`lecture:${lectureId}`).emit("lecture:presence", {
+    studentIds,
+    count: studentIds.length,
+  });
+}
+
 export function setupSocket(ioServer: Server): void {
   g.__socketIO = ioServer;
 
@@ -39,16 +49,6 @@ export function setupSocket(ioServer: Server): void {
         socket.join(`professor:${lectureId}`);
       }
 
-      if (role === "student" && studentId) {
-        socket.join(`student:${studentId}`);
-
-        // Track student in lecture
-        if (!lectureStudents.has(lectureId)) {
-          lectureStudents.set(lectureId, new Set());
-        }
-        lectureStudents.get(lectureId)!.add(studentId);
-      }
-
       // Clean up previous lecture if socket is re-joining
       const prev = socketMeta.get(socket.id);
       if (prev?.studentId) {
@@ -56,13 +56,23 @@ export function setupSocket(ioServer: Server): void {
         if (prevSet) {
           prevSet.delete(prev.studentId);
           if (prevSet.size === 0) {
-            lectureStudents.delete(prev.lectureId);
+          lectureStudents.delete(prev.lectureId);
           }
         }
+        emitPresence(prev.lectureId);
+      }
+
+      if (role === "student" && studentId) {
+        socket.join(`student:${studentId}`);
+        if (!lectureStudents.has(lectureId)) {
+          lectureStudents.set(lectureId, new Set());
+        }
+        lectureStudents.get(lectureId)!.add(studentId);
       }
 
       // Store socket metadata for disconnect cleanup
       socketMeta.set(socket.id, { lectureId, studentId });
+      emitPresence(lectureId);
 
       console.log(`Socket ${socket.id} joined lecture:${lectureId} as ${role}${studentId ? ` (student: ${studentId})` : ""}`);
     });
@@ -74,9 +84,10 @@ export function setupSocket(ioServer: Server): void {
         if (set) {
           set.delete(meta.studentId);
           if (set.size === 0) {
-            lectureStudents.delete(meta.lectureId);
+          lectureStudents.delete(meta.lectureId);
           }
         }
+        emitPresence(meta.lectureId);
       }
       socketMeta.delete(socket.id);
       console.log(`Socket disconnected: ${socket.id}`);

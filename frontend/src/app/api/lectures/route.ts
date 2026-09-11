@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       title,
     });
 
-    // In demo mode, automatically start the transcript simulator
+    // The simulator is intentionally opt-in for local demos only.
     if (process.env.DEMO_MODE === "true") {
       try {
         const { startSimulator } = await import("@server/simulator");

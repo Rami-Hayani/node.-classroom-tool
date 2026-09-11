@@ -34,7 +34,6 @@ interface MatchDetails {
   myConceptLabels?: string[];
   partnerConceptLabels?: string[];
   conceptComparison?: ConceptComparison[];
-  zoomLink: string;
   complementarityScore: number;
 }
 
@@ -69,7 +68,6 @@ const MOCK_MATCH_DETAILS: MatchDetails = {
     { conceptId: "c4", label: "Regularization", myConfidence: 0.7, partnerConfidence: 0.2, myColor: "green", partnerColor: "red" },
     { conceptId: "c5", label: "Gradient Descent", myConfidence: 0.8, partnerConfidence: 0.3, myColor: "green", partnerColor: "red" },
   ],
-  zoomLink: "https://us06web.zoom.us/j/3285887393?pwd=eht46wK2kfhskTMDizbmMHsx1ldLok.1",
   complementarityScore: 0.68
 };
 

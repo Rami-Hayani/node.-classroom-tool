@@ -193,7 +193,6 @@ export default function LandingPage() {
           {/*)}*/}
             <div className="flex items-center gap-8 mt-16 animate-[fadeInUp_0.7s_ease-out_0.55s_both]">
           <span className="text-sm text-gray-500 uppercase tracking-wider">Works with</span>
-          <img src="/zoom-logo.png" alt="Zoom" className="h-10 opacity-80" />
           <img src="/perplexity-logo.png" alt="Perplexity" className="h-10 opacity-80" />
           <img src="/render-logo.png" alt="Render" className="h-10 opacity-80" />
           <img src="/anthropic-logo.png" alt="Anthropic" className="h-12 opacity-80" />
@@ -289,13 +288,13 @@ export default function LandingPage() {
             </PrimaryButton>
           </form>
 
-          {/* Compatible with Zoom */}
+          {/* Browser-native live classroom */}
           <div className="flex items-center justify-center gap-2 mt-6 mb-1">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-gray-300">
               <rect x="1" y="5" width="15" height="14" rx="3" stroke="currentColor" strokeWidth="1.5" />
               <path d="M16 10l5-3v10l-5-3V10z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
-            <span className="text-xs text-gray-400 tracking-wide">Compatible with Zoom</span>
+            <span className="text-xs text-gray-400 tracking-wide">Live classroom intelligence</span>
           </div>
 
         </GlassCard>
