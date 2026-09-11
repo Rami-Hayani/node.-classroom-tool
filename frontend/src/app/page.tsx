@@ -8,7 +8,7 @@ import StarsBackground from "@/components/ui/StarsBackground";
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user, role, profile, courses, enrollments, loading, signIn, signUp, signOut } = useAuth();
+  const { user, role, profile, courses, enrollments, loading, signIn, signInWithGoogle, signUp, signOut } = useAuth();
 
   const [showAuth, setShowAuth] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -287,6 +287,25 @@ export default function LandingPage() {
                   : "Create Account"}
             </PrimaryButton>
           </form>
+
+          <div className="my-5 flex items-center gap-3 text-xs text-gray-400">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span>or</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              setError("");
+              const result = await signInWithGoogle(roleToggle);
+              if (result.error) setError(result.error);
+            }}
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            <span className="text-base font-semibold">G</span>
+            Continue with Google
+          </button>
 
           {/* Browser-native live classroom */}
           <div className="flex items-center justify-center gap-2 mt-6 mb-1">

@@ -38,7 +38,7 @@ cd prereq
 cp .env.example .env
 ```
 
-Edit `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_JWT_SECRET`, `ANTHROPIC_API_KEY`, `PERPLEXITY_API_KEY`, and `FLASK_API_URL` (your Flask API base URL). Set `DEMO_MODE=true` only when you explicitly want the transcript simulator and demo auto-responder.
+Edit `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `ANTHROPIC_API_KEY`, `PERPLEXITY_API_KEY`, and `FLASK_API_URL` (your Flask API base URL). The service-role key is server-only and is required for trusted profile/course writes. Set `DEMO_MODE=true` only when you explicitly want the transcript simulator and demo auto-responder.
 
 Create the database tables in Supabase (SQL Editor).
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 interface AuthUser {
   id: string;
@@ -34,6 +35,7 @@ interface AuthState {
   enrollments: Enrollment[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signInWithGoogle: (role: "teacher" | "student") => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string, role: "teacher" | "student") => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -47,6 +49,7 @@ const AuthContext = createContext<AuthState>({
   enrollments: [],
   loading: true,
   signIn: async () => ({}),
+  signInWithGoogle: async () => ({}),
   signUp: async () => ({}),
   signOut: async () => {},
   refreshProfile: async () => {},
@@ -140,6 +143,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {};
   }, []);
 
+  const signInWithGoogle = useCallback(async (selectedRole: "teacher" | "student") => {
+    if (!supabaseBrowser) {
+      return { error: "Google sign-in is not configured. Add the public Supabase URL and key." };
+    }
+
+    localStorage.setItem("oauthRole", selectedRole);
+    const { error } = await supabaseBrowser.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    return error ? { error: error.message } : {};
+  }, []);
+
   const signUp = useCallback(async (email: string, password: string, name: string, role: "teacher" | "student") => {
     const res = await flaskFetch("/api/auth/signup", {
       method: "POST",
@@ -183,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, role, courses, enrollments, loading, signIn, signUp, signOut, refreshProfile }}
+      value={{ user, profile, role, courses, enrollments, loading, signIn, signInWithGoogle, signUp, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
