@@ -1,0 +1,191 @@
+-- ============================================================
+-- Prereq: Complete Schema (base tables + auth extension)
+-- Run this in Supabase SQL Editor as a single block
+-- ============================================================
+
+-- Core tables
+CREATE TABLE courses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE concept_nodes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    label VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(100),
+    difficulty INT DEFAULT 3,
+    x FLOAT,
+    y FLOAT
+);
+
+CREATE TABLE concept_edges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    source_id UUID REFERENCES concept_nodes(id) ON DELETE CASCADE,
+    target_id UUID REFERENCES concept_nodes(id) ON DELETE CASCADE,
+    relationship VARCHAR(50) DEFAULT 'prerequisite'
+);
+
+CREATE TABLE students (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE student_mastery (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    concept_id UUID REFERENCES concept_nodes(id) ON DELETE CASCADE,
+    confidence FLOAT DEFAULT 0.0,
+    attempts INT DEFAULT 0,
+    last_updated TIMESTAMP DEFAULT NOW(),
+    UNIQUE(student_id, concept_id)
+);
+
+CREATE TABLE lecture_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    status VARCHAR(20) DEFAULT 'live',
+    started_at TIMESTAMP DEFAULT NOW(),
+    ended_at TIMESTAMP
+);
+
+CREATE TABLE transcript_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lecture_id UUID REFERENCES lecture_sessions(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    timestamp_sec FLOAT,
+    speaker_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE transcript_concepts (
+    transcript_chunk_id UUID REFERENCES transcript_chunks(id) ON DELETE CASCADE,
+    concept_id UUID REFERENCES concept_nodes(id) ON DELETE CASCADE,
+    PRIMARY KEY (transcript_chunk_id, concept_id)
+);
+
+CREATE TABLE poll_questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lecture_id UUID REFERENCES lecture_sessions(id) ON DELETE CASCADE,
+    concept_id UUID REFERENCES concept_nodes(id),
+    question TEXT NOT NULL,
+    expected_answer TEXT,
+    status VARCHAR(20) DEFAULT 'draft',
+    generated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE poll_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES poll_questions(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    answer TEXT NOT NULL,
+    evaluation JSONB,
+    answered_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE tutoring_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    target_concepts UUID[],
+    started_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE tutoring_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES tutoring_sessions(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+    content TEXT NOT NULL,
+    concept_id UUID,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Auth extension: teachers table + course/student auth columns
+CREATE TABLE teachers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    auth_id UUID UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    zoom_client_id VARCHAR(255),
+    zoom_client_secret VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS teacher_id UUID REFERENCES teachers(id);
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS join_code VARCHAR(8) UNIQUE;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS auth_id UUID;
+
+-- Indexes for fast lookups
+CREATE INDEX IF NOT EXISTS idx_teachers_auth_id ON teachers(auth_id);
+CREATE INDEX IF NOT EXISTS idx_students_auth_id ON students(auth_id);
+CREATE INDEX IF NOT EXISTS idx_courses_join_code ON courses(join_code);
+
+-- PDF upload cache (avoids re-processing duplicate uploads)
+CREATE TABLE pdf_cache (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    file_hash VARCHAR(64) UNIQUE NOT NULL,
+    filename VARCHAR(255),
+    result JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS pdf_cache_hash VARCHAR(64);
+
+-- Study group tables for peer-to-peer matching
+CREATE TABLE study_group_pool (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    concept_ids UUID[] NOT NULL,
+    status VARCHAR(20) DEFAULT 'waiting',
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '5 minutes'),
+    UNIQUE(student_id, course_id)
+);
+
+CREATE TABLE study_group_matches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    student1_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    student2_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    concept_ids UUID[] NOT NULL,
+    zoom_link VARCHAR(500),
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW(),
+    CHECK (student1_id < student2_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pool_course_status ON study_group_pool(course_id, status);
+CREATE INDEX IF NOT EXISTS idx_pool_student ON study_group_pool(student_id);
+CREATE INDEX IF NOT EXISTS idx_matches_students ON study_group_matches(student1_id, student2_id);
+
+-- Learning content tables (precomputed)
+CREATE TABLE concept_learning_pages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    concept_id UUID REFERENCES concept_nodes(id) ON DELETE CASCADE UNIQUE,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE concept_quiz_questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    concept_id UUID REFERENCES concept_nodes(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    option_a TEXT NOT NULL,
+    option_b TEXT NOT NULL,
+    option_c TEXT NOT NULL,
+    option_d TEXT NOT NULL,
+    correct_answer INT NOT NULL,
+    explanation TEXT NOT NULL,
+    question_order INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_learning_pages_concept ON concept_learning_pages(concept_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_questions_concept ON concept_quiz_questions(concept_id);

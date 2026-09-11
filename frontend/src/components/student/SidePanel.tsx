@@ -1,0 +1,658 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Send,
+  CheckCircle2,
+  MessageSquare,
+  BarChart2,
+  BookOpen,
+  AlertCircle,
+  Sparkles,
+  Mic,
+  X,
+} from "lucide-react";
+import type { GraphNode } from "@/components/graph/KnowledgeGraph";
+import type { TranscriptChunk } from "@/components/dashboard/TranscriptFeed";
+import { COLOR_HEX, confidenceToNodeBorder } from "@/lib/colors";
+import { flaskApi, nextApi } from "@/lib/api";
+import { formatTimestamp } from "@/lib/graph";
+import PerplexityDialog from "./PerplexityDialog";
+import LectureSummaryPanel from "./LectureSummaryPanel";
+import ConceptLearning from "./ConceptLearning";
+
+interface TranscriptExcerpt {
+  text: string;
+  timestamp_sec: number;
+  lecture_title?: string;
+}
+
+interface Resource {
+  title: string;
+  url: string;
+  type: string;
+  snippet: string;
+}
+
+export interface LectureSummaryData {
+  bullets: string[];
+  title_summary: string;
+  covered_concept_ids: string[];
+}
+
+interface WeakConcept {
+  id: string;
+  label: string;
+  confidence: number;
+}
+
+interface SidePanelProps {
+  activePoll: { pollId: string; question: string; conceptLabel: string } | null;
+  studentId: string;
+  transcriptChunks: TranscriptChunk[];
+  selectedNode: GraphNode | null;
+  onDeselectNode: () => void;
+  lectureId: string | null;
+  courseId: string | null;
+  lectureEnded?: boolean;
+  lectureSummary?: LectureSummaryData | null;
+  weakConcepts?: WeakConcept[];
+  onStartTutoring?: () => void;
+  onConceptClick?: (conceptId: string) => void;
+}
+
+export default function SidePanel({
+  activePoll,
+  studentId,
+  transcriptChunks,
+  selectedNode,
+  onDeselectNode,
+  lectureId,
+  courseId,
+  lectureEnded,
+  lectureSummary,
+  weakConcepts,
+  onStartTutoring,
+  onConceptClick,
+}: SidePanelProps) {
+  const [activeTab, setActiveTab] = useState<"poll" | "transcript" | "summary" | "concept">("poll");
+  const prevTabRef = useRef<"poll" | "transcript" | "summary">("poll");
+
+  // Poll state
+  const [pollAnswer, setPollAnswer] = useState("");
+  const [pollSubmitted, setPollSubmitted] = useState(false);
+  const [pollFeedback, setPollFeedback] = useState<string | null>(null);
+  const [pollLoading, setPollLoading] = useState(false);
+
+  // Node detail state
+  const [transcripts, setTranscripts] = useState<TranscriptExcerpt[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loadingTranscripts, setLoadingTranscripts] = useState(false);
+  const [loadingResources, setLoadingResources] = useState(false);
+
+  // Perplexity dialog state
+  const [perplexityOpen, setPerplexityOpen] = useState(false);
+
+  // Concept learning dialog state
+  const [learningOpen, setLearningOpen] = useState(false);
+
+  // Transcript auto-scroll
+  const transcriptBottomRef = useRef<HTMLDivElement>(null);
+
+  // Reset poll state when poll changes
+  useEffect(() => {
+    setPollAnswer("");
+    setPollSubmitted(false);
+    setPollFeedback(null);
+  }, [activePoll?.pollId]);
+
+  // Auto-switch to summary tab when lecture ends
+  useEffect(() => {
+    if (lectureEnded) {
+      setActiveTab("summary");
+    }
+  }, [lectureEnded]);
+
+  // Auto-switch to concept tab when a node is selected
+  useEffect(() => {
+    if (selectedNode) {
+      if (activeTab !== "concept") {
+        prevTabRef.current = activeTab as "poll" | "transcript" | "summary";
+      }
+      setActiveTab("concept");
+    } else if (activeTab === "concept") {
+      setActiveTab(prevTabRef.current);
+    }
+  }, [selectedNode?.id]);
+
+  // Auto-scroll transcript
+  useEffect(() => {
+    if (activeTab === "transcript") {
+      transcriptBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [transcriptChunks.length, activeTab]);
+
+  // Fetch node detail data when selectedNode changes
+  useEffect(() => {
+    if (!selectedNode) {
+      setTranscripts([]);
+      setResources([]);
+      return;
+    }
+
+    const nodeConf = selectedNode.confidence ?? 0;
+    if (nodeConf === 0 || nodeConf >= 0.7) {
+      setTranscripts([]);
+      setResources([]);
+      return;
+    }
+
+    if (lectureId) {
+      setLoadingTranscripts(true);
+      flaskApi
+        .get(`/api/lectures/${lectureId}/transcript-excerpts?concept_ids=${selectedNode.id}`)
+        .then((data: TranscriptExcerpt[]) => setTranscripts(data))
+        .catch(() => setTranscripts([]))
+        .finally(() => setLoadingTranscripts(false));
+    }
+
+    setLoadingResources(true);
+    nextApi
+      .get(`/api/resources/search?concept=${encodeURIComponent(selectedNode.label)}${courseId ? `&courseId=${courseId}` : ""}`)
+      .then((data: { resources: Resource[] }) => setResources(data.resources || []))
+      .catch(() => setResources([]))
+      .finally(() => setLoadingResources(false));
+  }, [selectedNode?.id, selectedNode?.color, lectureId, courseId]);
+
+  // Poll submit handler
+  async function handlePollSubmit() {
+    if (!activePoll || !pollAnswer.trim()) return;
+    setPollLoading(true);
+    try {
+      const res = await nextApi.post(`/api/polls/${activePoll.pollId}/respond`, {
+        studentId,
+        answer: pollAnswer.trim(),
+      });
+      setPollFeedback(res.evaluation?.feedback || "Answer submitted.");
+      setPollSubmitted(true);
+    } catch {
+      setPollFeedback("Failed to submit. Please try again.");
+    } finally {
+      setPollLoading(false);
+    }
+  }
+
+  // Node detail content
+  const renderNodeContent = () => {
+    if (!selectedNode) return null;
+
+    const confidence = selectedNode.confidence ?? 0;
+    const colorHex = confidenceToNodeBorder(confidence);
+    const confidencePct = Math.round(confidence * 100);
+    const isStruggling = confidence > 0 && confidence < 0.7;
+    const isMastered = confidence >= 0.7;
+
+    return (
+      <motion.div
+        key="node-detail"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        className="h-full"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold text-gray-800 truncate">{selectedNode.label}</h2>
+            {selectedNode.category && (
+              <span className="inline-flex items-center mt-1 px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 border border-gray-200 rounded-full">
+                {selectedNode.category}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onDeselectNode}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600 shrink-0 ml-2"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Confidence bar */}
+        <div className="space-y-1.5 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-gray-500">Confidence</span>
+            <span className="text-xs font-semibold" style={{ color: colorHex }}>
+              {confidencePct}%
+            </span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${confidencePct}%`, backgroundColor: colorHex }}
+            />
+          </div>
+        </div>
+
+        {selectedNode.description && (
+          <p className="text-sm text-gray-500 leading-relaxed mb-4">{selectedNode.description}</p>
+        )}
+
+        {/* Green: mastery summary */}
+        {isMastered && (
+          <div className="p-4 rounded-xl bg-green-50 border border-green-200">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="text-green-500 shrink-0 mt-0.5" size={20} />
+              <div>
+                <h3 className="text-green-700 font-medium text-sm">Concept Mastered</h3>
+                <p className="text-gray-500 text-xs mt-1">
+                  Great job! You&apos;ve demonstrated strong understanding.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Gray: not yet covered */}
+        {confidence === 0 && (
+          <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+            <p className="text-sm text-gray-400 italic">
+              This concept hasn&apos;t been covered yet in lecture.
+            </p>
+          </div>
+        )}
+
+        {/* Red/Yellow: needs attention */}
+        {isStruggling && (
+          <div className="space-y-5">
+            <div
+              className={`p-4 rounded-xl border ${
+                confidence < 0.4
+                  ? "bg-orange-50 border-orange-200"
+                  : confidence < 0.55
+                    ? "bg-yellow-50 border-yellow-200"
+                    : "bg-lime-50 border-lime-200"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle
+                  className={`shrink-0 mt-0.5 ${
+                    confidence < 0.4 ? "text-orange-500" : confidence < 0.55 ? "text-yellow-500" : "text-lime-500"
+                  }`}
+                  size={20}
+                />
+                <div>
+                  <h3
+                    className={`font-medium text-sm ${
+                      confidence < 0.4 ? "text-orange-700" : confidence < 0.55 ? "text-yellow-700" : "text-lime-700"
+                    }`}
+                  >
+                    {confidence < 0.4 ? "Developing" : confidence < 0.55 ? "Building" : "On Track"}
+                  </h3>
+                  <p className="text-gray-500 text-xs mt-1">Review these resources to strengthen your understanding.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lecture Moments */}
+            <div>
+              <h4 className="text-[10px] font-medium text-gray-700 uppercase tracking-wider mb-2">
+                Lecture Moments
+              </h4>
+              {loadingTranscripts ? (
+                <p className="text-xs text-gray-400">Loading...</p>
+              ) : transcripts.length > 0 ? (
+                <div className="space-y-2">
+                  {transcripts.map((t, i) => (
+                    <div key={i} className="text-xs border-l-2 border-blue-300 pl-2.5 py-1">
+                      {t.lecture_title && (
+                        <span className="inline-flex items-center px-1.5 py-0 text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-md mr-1.5">
+                          {t.lecture_title}
+                        </span>
+                      )}
+                      <span className="font-mono text-blue-500 text-[10px]">
+                        {formatTimestamp(t.timestamp_sec)}
+                      </span>{" "}
+                      <span className="text-gray-600">{t.text}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic">No lecture excerpts found.</p>
+              )}
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h4 className="text-[10px] font-medium text-gray-700 uppercase tracking-wider mb-2">
+                Recommended Resources
+              </h4>
+              {loadingResources ? (
+                <p className="text-xs text-gray-400">Loading...</p>
+              ) : resources.length > 0 ? (
+                <div className="space-y-2">
+                  {resources.map((r, i) => (
+                    <a
+                      key={i}
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-colors group"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 transition-colors shrink-0">
+                        {r.type === "video" ? (
+                          <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-current border-b-[4px] border-b-transparent ml-0.5" />
+                        ) : (
+                          <BookOpen size={14} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-700 truncate">{r.title}</p>
+                        {r.snippet && <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{r.snippet}</p>}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic">No resources found.</p>
+              )}
+            </div>
+
+            {/* Learning buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setLearningOpen(true)}
+                className="py-3 px-4 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 flex items-center justify-center gap-2 transition-all text-sm font-medium"
+              >
+                <BookOpen size={16} />
+                <span>Learn</span>
+              </button>
+              <button
+                onClick={() => {
+                  setLearningOpen(true);
+                  // The dialog will handle switching to quiz mode via its internal tabs
+                }}
+                className="py-3 px-4 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 flex items-center justify-center gap-2 transition-all text-sm font-medium"
+              >
+                <BarChart2 size={16} />
+                <span>Quiz</span>
+              </button>
+            </div>
+
+            {/* Perplexity AI button */}
+            <button
+              onClick={() => setPerplexityOpen(true)}
+              className="w-full py-3 px-4 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 flex items-center justify-center gap-2 transition-all"
+            >
+              <Sparkles size={16} />
+              <span>Ask Perplexity AI</span>
+            </button>
+          </div>
+        )}
+      </motion.div>
+    );
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-white border border-gray-200/80 rounded-xl overflow-hidden">
+      {/* Tab header */}
+      <div className="flex border-b border-gray-200/80">
+        <button
+          onClick={() => setActiveTab("poll")}
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
+            activeTab === "poll" ? "text-gray-800" : "text-gray-400 hover:text-gray-500"
+          }`}
+        >
+          <BarChart2 size={15} />
+          <span>Live Poll</span>
+          {activeTab === "poll" && (
+            <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("transcript")}
+          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
+            activeTab === "transcript" ? "text-gray-800" : "text-gray-400 hover:text-gray-500"
+          }`}
+        >
+          <MessageSquare size={15} />
+          <span>Transcript</span>
+          {activeTab === "transcript" && (
+            <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
+          )}
+        </button>
+        {lectureEnded && (
+          <button
+            onClick={() => setActiveTab("summary")}
+            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
+              activeTab === "summary" ? "text-gray-800" : "text-gray-400 hover:text-gray-500"
+            }`}
+          >
+            <BookOpen size={15} />
+            <span>Summary</span>
+            {activeTab === "summary" && (
+              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
+            )}
+          </button>
+        )}
+        {selectedNode && (
+          <div className="flex-1 relative flex items-center">
+            <button
+              onClick={() => setActiveTab("concept")}
+              className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+                activeTab === "concept" ? "text-gray-800" : "text-gray-400 hover:text-gray-500"
+              }`}
+            >
+              <BookOpen size={15} />
+              <span className="truncate max-w-[80px]">{selectedNode.label}</span>
+            </button>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={onDeselectNode}
+              onKeyDown={(e) => { if (e.key === "Enter") onDeselectNode(); }}
+              className="absolute right-1.5 p-0.5 rounded hover:bg-gray-200 transition-colors cursor-pointer text-gray-400 hover:text-gray-600"
+            >
+              <X size={12} />
+            </span>
+            {activeTab === "concept" && (
+              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <AnimatePresence mode="wait">
+          {activeTab === "concept" && selectedNode ? (
+            renderNodeContent()
+          ) : activeTab === "summary" ? (
+            <motion.div
+              key="summary"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <LectureSummaryPanel
+                loading={!lectureSummary}
+                bullets={lectureSummary?.bullets ?? []}
+                titleSummary={lectureSummary?.title_summary ?? "Lecture Summary"}
+                weakConcepts={weakConcepts ?? []}
+                onStartTutoring={onStartTutoring ?? (() => {})}
+                onConceptClick={onConceptClick}
+              />
+            </motion.div>
+          ) : activeTab === "poll" ? (
+            <motion.div
+              key="poll"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="h-full flex flex-col"
+            >
+              {activePoll ? (
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2 block">
+                    Current Question
+                  </span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200 rounded-full">
+                      {activePoll.conceptLabel}
+                    </span>
+                  </div>
+                  <h3 className="text-base text-gray-800 font-medium mb-4 leading-snug">
+                    {activePoll.question}
+                  </h3>
+
+                  {!pollSubmitted ? (
+                    <div className="space-y-3">
+                      <textarea
+                        className="w-full bg-white border border-gray-200 rounded-lg p-3 text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300/50 focus:border-gray-300 resize-none h-32 text-sm"
+                        placeholder="Type your answer here..."
+                        value={pollAnswer}
+                        onChange={(e) => setPollAnswer(e.target.value)}
+                      />
+                      <button
+                        onClick={handlePollSubmit}
+                        disabled={pollLoading || !pollAnswer.trim()}
+                        className={`w-full py-2.5 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+                          pollAnswer.trim()
+                            ? "bg-gray-800 hover:bg-gray-700 text-white"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <Send size={14} />
+                        <span>{pollLoading ? "Submitting..." : "Submit Answer"}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm flex items-center gap-2">
+                        <CheckCircle2 size={16} />
+                        Answer submitted!
+                      </div>
+                      {pollFeedback && (
+                        <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                          <p className="text-sm text-gray-600 italic">{pollFeedback}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center mb-3">
+                    <BarChart2 className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500">No active poll</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    A poll will appear here when the professor starts one
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="transcript"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-3"
+            >
+              {transcriptChunks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center mb-3">
+                    <Mic className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-500">Waiting for transcript...</p>
+                  <p className="text-xs text-gray-400 mt-1">Audio will appear here once the lecture starts</p>
+                </div>
+              ) : (
+                transcriptChunks.map((chunk, i) => {
+                  const isLatest = i === transcriptChunks.length - 1;
+                  return (
+                    <div
+                      key={chunk.id}
+                      className={`p-3 rounded-lg transition-colors ${
+                        isLatest ? "bg-gray-50 border border-gray-200" : "hover:bg-gray-50"
+                      }`}
+                    >
+                      {chunk.timestamp != null && (
+                        <span className="text-xs font-mono text-gray-400 mb-1 block">
+                          {formatTimestamp(chunk.timestamp)}
+                        </span>
+                      )}
+                      {chunk.speakerName && (
+                        <span className="font-medium text-gray-500 text-xs uppercase tracking-wide">
+                          {chunk.speakerName}:{" "}
+                        </span>
+                      )}
+                      <p className={`text-sm leading-relaxed ${isLatest ? "text-gray-800" : "text-gray-600"}`}>
+                        {chunk.text}
+                      </p>
+                      {chunk.detectedConcepts && chunk.detectedConcepts.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {chunk.detectedConcepts.map((c) => (
+                            <span
+                              key={c.id}
+                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border"
+                              style={{
+                                borderColor: (COLOR_HEX[c.color || "gray"] || COLOR_HEX.gray) + "40",
+                                color: COLOR_HEX[c.color || "gray"] || COLOR_HEX.gray,
+                                backgroundColor: (COLOR_HEX[c.color || "gray"] || COLOR_HEX.gray) + "10",
+                              }}
+                            >
+                              {c.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+              <div ref={transcriptBottomRef} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Perplexity AI Dialog */}
+      {selectedNode && (
+        <PerplexityDialog
+          isOpen={perplexityOpen}
+          onClose={() => setPerplexityOpen(false)}
+          conceptLabel={selectedNode.label}
+          conceptDescription={selectedNode.description}
+          lectureContext={
+            transcripts.length > 0
+              ? transcripts
+                  .slice(0, 3)
+                  .map((t) => `[${formatTimestamp(t.timestamp_sec)}] ${t.text}`)
+                  .join("\n\n")
+              : undefined
+          }
+        />
+      )}
+
+      {/* Concept Learning Dialog */}
+      {selectedNode && (
+        <ConceptLearning
+          conceptId={selectedNode.id}
+          conceptLabel={selectedNode.label}
+          studentId={studentId}
+          isOpen={learningOpen}
+          onClose={() => setLearningOpen(false)}
+          onConfidenceUpdate={(oldColor, newColor, confidence) => {
+            // Update the node color in the graph
+            if (selectedNode) {
+              selectedNode.color = newColor;
+              selectedNode.confidence = confidence;
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
