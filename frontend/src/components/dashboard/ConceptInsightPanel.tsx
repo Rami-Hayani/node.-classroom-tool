@@ -9,7 +9,7 @@ interface ClassStudent { id: string; name: string; confidence: number; color: st
 interface LatestQuestion { id: string; question: string; expected_answer?: string; status?: string }
 interface ConceptInsightPanelProps {
   courseId: string | null;
-  concept: { id: string; label: string; avgConfidence: number; strugglingCount: number; masteredCount: number; splitClass?: boolean } | null;
+  concept: { id: string; label: string; avgConfidence: number; strugglingCount?: number; masteredCount?: number; splitClass?: boolean } | null;
   refreshKey?: number;
 }
 
@@ -26,7 +26,7 @@ export default function ConceptInsightPanel({ courseId, concept, refreshKey = 0 
       .catch(() => setStudents([]));
     flaskApi.get(`/api/courses/${courseId}/concepts/${concept.id}/latest-question`)
       .then((data) => {
-        const result = data as { question: LatestQuestion | null; responses: QuestionResponse[] };
+        const result = data as { question: LatestQuestion | null };
         setLatestQuestion(result.question || null);
       })
       .catch(() => { setLatestQuestion(null); })
@@ -47,8 +47,8 @@ export default function ConceptInsightPanel({ courseId, concept, refreshKey = 0 
         <div className="text-right"><div className="text-2xl font-semibold text-gray-800">{Math.round(concept.avgConfidence * 100)}%</div><div className="text-[10px] text-gray-400">class mastery</div></div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-        <span className="rounded-full bg-red-50 px-2 py-1 text-red-600">{concept.strugglingCount} struggling</span>
-        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">{concept.masteredCount} mastered</span>
+        <span className="rounded-full bg-red-50 px-2 py-1 text-red-600">{concept.strugglingCount ?? 0} struggling</span>
+        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">{concept.masteredCount ?? 0} mastered</span>
         {concept.splitClass && <span className="rounded-full bg-violet-50 px-2 py-1 font-medium text-violet-700">Split class</span>}
       </div>
       <div className="mt-6">
