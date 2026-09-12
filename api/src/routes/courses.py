@@ -94,9 +94,12 @@ def get_course(course_id):
     # the owning teacher so the professor dashboard always has a code to show.
     if g.user and not course.get('join_code'):
         teacher = supabase.table('teachers').select('id').eq('auth_id', g.user['sub']).execute().data
-        if teacher and course.get('teacher_id') == teacher[0]['id']:
+        if teacher and (course.get('teacher_id') in (None, teacher[0]['id'])):
             join_code = _generate_join_code()
-            updated = supabase.table('courses').update({'join_code': join_code}).eq('id', course_id).execute()
+            update_values = {'join_code': join_code}
+            if not course.get('teacher_id'):
+                update_values['teacher_id'] = teacher[0]['id']
+            updated = supabase.table('courses').update(update_values).eq('id', course_id).execute()
             if updated.data:
                 course = updated.data[0]
 
@@ -112,12 +115,15 @@ def ensure_course_join_code(course_id):
         return jsonify({'error': 'Only a professor can manage a course join code'}), 403
 
     course_rows = supabase.table('courses').select('id, teacher_id, join_code').eq('id', course_id).execute().data
-    if not course_rows or course_rows[0].get('teacher_id') != teacher[0]['id']:
+    if not course_rows or course_rows[0].get('teacher_id') not in (None, teacher[0]['id']):
         return jsonify({'error': 'Course not found'}), 404
 
     course = course_rows[0]
     if not course.get('join_code'):
-        updated = supabase.table('courses').update({'join_code': _generate_join_code()}).eq('id', course_id).execute()
+        update_values = {'join_code': _generate_join_code()}
+        if not course.get('teacher_id'):
+            update_values['teacher_id'] = teacher[0]['id']
+        updated = supabase.table('courses').update(update_values).eq('id', course_id).execute()
         if updated.data:
             course = updated.data[0]
 

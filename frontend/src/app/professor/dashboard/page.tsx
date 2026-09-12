@@ -71,6 +71,13 @@ export default function ProfessorDashboard() {
           setCourseId(courses[0].id);
           setJoinCode(courses[0].join_code || null);
           localStorage.setItem("courseId", courses[0].id);
+          if (!courses[0].join_code) {
+            setJoinCodeLoading(true);
+            flaskApi.post(`/api/courses/${courses[0].id}/join-code`, {})
+              .then((course: { join_code?: string }) => setJoinCode(course.join_code || null))
+              .catch(() => setJoinCode(null))
+              .finally(() => setJoinCodeLoading(false));
+          }
         }
       })
       .catch(() => {});
