@@ -60,9 +60,6 @@ export default function SidePanel({
   const [pollSubmitted, setPollSubmitted] = useState(false);
   const [pollFeedback, setPollFeedback] = useState<string | null>(null);
   const [pollScore, setPollScore] = useState<number | null>(null);
-  const [pollResponseId, setPollResponseId] = useState<string | null>(null);
-  const [editingGrade, setEditingGrade] = useState(false);
-  const [savingGrade, setSavingGrade] = useState(false);
   const [pollLoading, setPollLoading] = useState(false);
 
   // Node detail state
@@ -83,8 +80,6 @@ export default function SidePanel({
     setPollSubmitted(false);
     setPollFeedback(null);
     setPollScore(null);
-    setPollResponseId(null);
-    setEditingGrade(false);
   }, [activePoll?.pollId]);
 
   // Auto-switch to concept tab when a node is selected
@@ -142,23 +137,12 @@ export default function SidePanel({
       });
       setPollFeedback(res.evaluation?.feedback || "Answer submitted.");
       setPollScore(typeof res.evaluation?.score === "number" ? res.evaluation.score : null);
-      setPollResponseId(res.responseId || null);
       setPollSubmitted(true);
     } catch {
       setPollFeedback("Failed to submit. Please try again.");
     } finally {
       setPollLoading(false);
     }
-  }
-
-  async function saveStudentGrade() {
-    if (!activePoll || !pollResponseId || pollScore === null || pollScore < 0 || pollScore > 100) return;
-    setSavingGrade(true);
-    try {
-      const result = await flaskApi.put(`/api/polls/${activePoll.pollId}/responses/${pollResponseId}/grade`, { score: pollScore });
-      setPollScore(result.score);
-      setEditingGrade(false);
-    } finally { setSavingGrade(false); }
   }
 
   // Node detail content
@@ -476,7 +460,7 @@ export default function SidePanel({
                       {pollScore !== null && (
                         <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
                           <span className="text-gray-500">AI grade</span>
-                          {editingGrade ? <div className="flex items-center gap-2"><input type="number" min="0" max="100" value={pollScore} onChange={(event) => setPollScore(Number(event.target.value))} className="w-16 rounded border border-gray-200 px-2 py-1 text-right" /><button onClick={() => void saveStudentGrade()} disabled={savingGrade} className="font-medium text-blue-600">{savingGrade ? "Saving…" : "Save"}</button></div> : <button onClick={() => setEditingGrade(true)} className="font-semibold text-gray-700 underline decoration-gray-300 underline-offset-2">{Math.round(pollScore)}% · Edit</button>}
+                          <span className="font-semibold text-gray-700">{Math.round(pollScore)}%</span>
                         </div>
                       )}
                     </div>

@@ -1,7 +1,7 @@
-from flask import request, jsonify, Blueprint
+from flask import request, jsonify, Blueprint, g
 
 from ..db import supabase
-from ..middleware.auth import optional_auth
+from ..middleware.auth import optional_auth, require_auth
 
 polls = Blueprint("polls", __name__)
 
@@ -190,9 +190,12 @@ def get_latest_concept_question(course_id, concept_id):
 
 
 @polls.route('/api/polls/<poll_id>/responses/<response_id>/grade', methods=['PUT'])
-@optional_auth
+@require_auth
 def edit_poll_response_grade(poll_id, response_id):
-    """Allow teacher or student UI to correct the numeric grade and refresh mastery."""
+    """Allow an authenticated professor to correct a numeric grade and refresh mastery."""
+    teacher = supabase.table('teachers').select('id').eq('auth_id', g.user.get('sub')).execute().data
+    if not teacher:
+        return jsonify({'error': 'Only professors can edit poll grades'}), 403
     data = request.json or {}
     try:
         score = max(0.0, min(100.0, float(data['score'])))
