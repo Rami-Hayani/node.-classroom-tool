@@ -1,6 +1,6 @@
 "use client";
 
-const coral = "#ff725f";
+const accent = "#315a7d";
 
 const paths = [
   "M0 105H120Q155 105 155 140V245H315",
@@ -48,7 +48,7 @@ export default function StarsBackground() {
             <path
               id={pathId}
               d={path}
-              stroke={coral}
+              stroke={accent}
               strokeWidth="2"
               opacity="0.3"
               strokeLinecap="round"
@@ -58,7 +58,7 @@ export default function StarsBackground() {
             <path
               d={path}
               pathLength="100"
-              stroke={coral}
+              stroke={accent}
               strokeWidth="2.6"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -78,7 +78,7 @@ export default function StarsBackground() {
             height="16"
             rx="1"
             fill="white"
-            stroke={coral}
+            stroke={accent}
             strokeWidth="2"
             transform={`rotate(45 ${cx} ${cy})`}
             className="node-marker"
@@ -92,7 +92,7 @@ export default function StarsBackground() {
             width="10"
             height="10"
             rx="1"
-            fill={coral}
+            fill={accent}
             className="node-terminal"
           />
         ))}
