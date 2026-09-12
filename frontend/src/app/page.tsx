@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { flaskApi } from "@/lib/api";
 import StarsBackground from "@/components/ui/StarsBackground";
+import CircuitLines from "@/components/ui/CircuitLines";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function LandingPage() {
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   // Auto-redirect authenticated users
   useEffect(() => {
@@ -163,18 +165,30 @@ export default function LandingPage() {
   // --- Unauthenticated: Splash ---
   if (!showAuth) {
     return (
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <div ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <StarsBackground />
+        <CircuitLines containerRef={heroRef} />
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
+            data-circuit-anchor="wordmark"
+            data-circuit-order="0"
+            data-circuit-side="bottom"
             className="font-sans font-normal text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#286da8] tracking-[-0.09em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
             node.
           </h1>
-          <p className="max-w-[min(90vw,52rem)] text-base sm:text-xl lg:text-2xl text-gray-600 tracking-tight text-center mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
+          <p
+            data-circuit-anchor="tagline"
+            data-circuit-order="1"
+            data-circuit-side="top"
+            className="max-w-[min(90vw,52rem)] text-base sm:text-xl lg:text-2xl text-gray-600 tracking-tight text-center mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light"
+          >
             Know what your class understands and what to teach next.
           </p>
           <button
+            data-circuit-anchor="cta"
+            data-circuit-order="2"
+            data-circuit-side="top"
             onClick={() => setShowAuth(true)}
             className="px-12 py-4 rounded-full border border-[#286da8]/80 text-gray-700 font-medium text-base hover:bg-[#286da8] hover:text-white hover:border-[#286da8] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
           >
