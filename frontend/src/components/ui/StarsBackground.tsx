@@ -3,27 +3,25 @@
 const accent = "#286da8";
 
 const paths = [
-  "M0 110H120Q175 110 175 165V285H390",
-  "M0 405H170Q225 405 225 460V555H470",
-  "M90 0V70Q90 125 145 125H365Q420 125 420 180V245H560",
-  "M420 0V65Q420 120 475 120H700Q755 120 755 175V245H880",
-  "M1040 0V75Q1040 130 985 130H825Q770 130 770 185V260H650",
-  "M1360 0V90Q1360 145 1305 145H1190Q1135 145 1135 200V285H1020",
-  "M1440 235H1320Q1265 235 1265 290V410H1080",
-  "M1440 490H1290Q1235 490 1235 545V625H1080",
-  "M0 650H125Q180 650 180 595V505H340",
-  "M0 825H200Q255 825 255 770V690H470",
-  "M90 900V845Q90 790 145 790H315Q370 790 370 735V650H520",
-  "M560 900V840Q560 785 615 785H800Q855 785 855 730V650H980",
-  "M960 900V845Q960 790 1015 790H1190Q1245 790 1245 735V650H1370",
-  "M1440 770H1350Q1295 770 1295 715V650H1170",
-  "M1440 900H1260Q1205 900 1205 845V790H1060",
+  "M0 120H135Q205 120 205 190V315Q205 385 275 385H500",
+  "M0 450H115Q185 450 185 520V625Q185 695 255 695H475",
+  "M80 0V70Q80 140 150 140H370Q440 140 440 210V285H610",
+  "M475 0V55Q475 125 545 125H760Q830 125 830 195V280H960",
+  "M1000 0V80Q1000 150 930 150H820Q750 150 750 220V300H650",
+  "M1370 0V95Q1370 165 1300 165H1160Q1090 165 1090 235V320H990",
+  "M1440 250H1325Q1255 250 1255 320V445H1080",
+  "M1440 545H1310Q1240 545 1240 615V700H1070",
+  "M0 760H120Q190 760 190 690V585H350",
+  "M0 900H235Q305 900 305 830V755H500",
+  "M140 900V845Q140 775 210 775H365Q435 775 435 705V640H565",
+  "M600 900V850Q600 780 670 780H820Q890 780 890 710V640H1000",
+  "M1010 900V845Q1010 775 1080 775H1220Q1290 775 1290 705V640H1430",
 ];
 
 const circles = [
-  [175, 110], [225, 405], [90, 125], [420, 120], [1040, 130], [1360, 145],
-  [1265, 235], [1235, 490], [180, 650], [255, 825], [370, 790], [560, 785],
-  [960, 790], [1295, 770], [1205, 900],
+  [205, 120], [185, 450], [80, 140], [475, 125], [1000, 150], [1370, 165],
+  [1255, 250], [1240, 545], [190, 760], [305, 900], [435, 775], [600, 780],
+  [1010, 775], [1290, 775],
 ];
 
 const terminals = [
@@ -49,8 +47,8 @@ export default function StarsBackground() {
               id={pathId}
               d={path}
               stroke={accent}
-              strokeWidth="2"
-              opacity="0.3"
+              strokeWidth="2.2"
+              opacity="0.34"
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
@@ -59,12 +57,12 @@ export default function StarsBackground() {
               d={path}
               pathLength="100"
               stroke={accent}
-              strokeWidth="2.6"
+              strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
               className="node-circuit-highlight"
-              style={{ animationDuration: `${6 + (index % 4)}s`, animationDelay: `${index * -0.45}s` }}
+              style={{ animationDuration: `${7 + (index % 4)}s`, animationDelay: `${index * -0.45}s` }}
             />
           </g>
           );
@@ -74,7 +72,7 @@ export default function StarsBackground() {
             key={`circle-${cx}-${cy}`}
             cx={cx}
             cy={cy}
-            r="7"
+            r="8"
             fill={accent}
             className="node-circle"
           />
