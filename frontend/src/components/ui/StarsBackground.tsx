@@ -2,162 +2,112 @@
 
 import { useEffect, useRef } from "react";
 
-interface GlassNode {
-  x: number;
-  y: number;
-  radius: number;
-  opacity: number;
-  speed: number;
-  offset: number;
-  color: "blue" | "green" | "indigo" | "teal" | "purple";
+interface Point { x: number; y: number; }
+interface CircuitPath { points: Point[]; pulseOffset: number; pulseSpeed: number; }
+
+const CORAL = "#ff725f";
+const GREEN = "#0d2d08";
+
+function createPaths(width: number, height: number): CircuitPath[] {
+  const midX = width * 0.5;
+  const midY = height * 0.5;
+  const edgePaths = [
+    [{ x: -20, y: height * 0.16 }, { x: width * 0.16, y: height * 0.16 }, { x: width * 0.22, y: height * 0.22 }, { x: midX - 70, y: height * 0.22 }],
+    [{ x: width * 0.08, y: -20 }, { x: width * 0.08, y: height * 0.18 }, { x: width * 0.16, y: height * 0.25 }, { x: width * 0.16, y: midY - 80 }],
+    [{ x: width * 0.3, y: -20 }, { x: width * 0.3, y: height * 0.12 }, { x: width * 0.37, y: height * 0.2 }, { x: width * 0.37, y: midY - 45 }],
+    [{ x: width * 0.68, y: -20 }, { x: width * 0.68, y: height * 0.12 }, { x: width * 0.62, y: height * 0.2 }, { x: midX + 45, y: height * 0.2 }],
+    [{ x: width * 0.9, y: -20 }, { x: width * 0.9, y: height * 0.19 }, { x: width * 0.82, y: height * 0.26 }, { x: midX + 130, y: height * 0.26 }],
+    [{ x: width + 20, y: height * 0.15 }, { x: width * 0.82, y: height * 0.15 }, { x: width * 0.75, y: height * 0.23 }, { x: midX + 85, y: height * 0.23 }],
+    [{ x: -20, y: height * 0.66 }, { x: width * 0.13, y: height * 0.66 }, { x: width * 0.2, y: height * 0.58 }, { x: midX - 110, y: height * 0.58 }],
+    [{ x: -20, y: height * 0.84 }, { x: width * 0.12, y: height * 0.84 }, { x: width * 0.2, y: height * 0.76 }, { x: midX - 55, y: height * 0.76 }],
+    [{ x: width * 0.08, y: height + 20 }, { x: width * 0.08, y: height * 0.82 }, { x: width * 0.17, y: height * 0.72 }, { x: width * 0.17, y: midY + 70 }],
+    [{ x: width * 0.36, y: height + 20 }, { x: width * 0.36, y: height * 0.78 }, { x: width * 0.43, y: height * 0.7 }, { x: width * 0.43, y: midY + 110 }],
+    [{ x: width * 0.72, y: height + 20 }, { x: width * 0.72, y: height * 0.8 }, { x: width * 0.64, y: height * 0.72 }, { x: midX + 50, y: midY + 70 }],
+    [{ x: width + 20, y: height * 0.78 }, { x: width * 0.84, y: height * 0.78 }, { x: width * 0.77, y: height * 0.7 }, { x: midX + 105, y: height * 0.7 }],
+  ];
+  return edgePaths.map((points, index) => ({ points, pulseOffset: index * 0.8, pulseSpeed: 0.0015 + (index % 4) * 0.00035 }));
+}
+
+function drawRoundedPath(ctx: CanvasRenderingContext2D, points: Point[]) {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let index = 1; index < points.length; index += 1) {
+    const point = points[index];
+    const previous = points[index - 1];
+    const next = points[index + 1];
+    if (!next) { ctx.lineTo(point.x, point.y); continue; }
+    const radius = Math.min(28, Math.abs(next.x - previous.x) / 3, Math.abs(next.y - previous.y) / 3);
+    const before = { x: point.x + Math.sign(previous.x - point.x) * radius, y: point.y + Math.sign(previous.y - point.y) * radius };
+    const after = { x: point.x + Math.sign(next.x - point.x) * radius, y: point.y + Math.sign(next.y - point.y) * radius };
+    ctx.lineTo(before.x, before.y);
+    ctx.quadraticCurveTo(point.x, point.y, after.x, after.y);
+  }
 }
 
 export default function StarsBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const nodesRef = useRef<GlassNode[]>([]);
-  const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    let width = 0;
+    let height = 0;
+    let paths: CircuitPath[] = [];
+    let animationFrame = 0;
 
-    const updateCanvasSize = () => {
-      const dpr = window.devicePixelRatio || 1;
+    const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      const dpr = window.devicePixelRatio || 1;
+      width = rect.width;
+      height = rect.height;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      paths = createPaths(width, height);
     };
 
-    updateCanvasSize();
-    window.addEventListener("resize", updateCanvasSize);
+    const animate = (time: number) => {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = GREEN;
+      ctx.fillRect(0, 0, width, height);
 
-    const colors: GlassNode["color"][] = ["blue", "green", "indigo", "teal", "purple"];
-
-    nodesRef.current = Array.from({ length: 26 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      radius: Math.random() * 55 + 18,
-      opacity: Math.random() * 0.18 + 0.10,
-      speed: Math.random() * 0.12 + 0.03,
-      offset: Math.random() * Math.PI * 2,
-      color: colors[Math.floor(Math.random() * colors.length)],
-    }));
-
-    const colorMap = {
-      blue: { r: 59, g: 130, b: 246 },
-      green: { r: 34, g: 197, b: 94 },
-      indigo: { r: 129, g: 140, b: 248 },
-      teal: { r: 45, g: 212, b: 191 },
-      purple: { r: 168, g: 85, b: 247 },
-    };
-
-    let time = 0;
-    const animate = () => {
-      const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
-      time += 1;
-
-      const dpr = window.devicePixelRatio || 1;
-
-      nodesRef.current.forEach((node) => {
-        const sway = Math.sin(time * 0.005 + node.offset) * 0.35;
-        const breathe = Math.sin(time * 0.012 + node.offset) * 0.03;
-        const pulse = Math.sin(time * 0.008 + node.offset * 2) * 0.2;
-        const currentOpacity = node.opacity + breathe;
-        const currentRadius = node.radius * (1 + pulse * 0.08);
-
-        node.y -= node.speed;
-        node.x += sway * 0.15;
-
-        if (node.y < -node.radius * 3) {
-          node.y = rect.height + node.radius * 3;
-          node.x = Math.random() * rect.width * dpr;
-        }
-
-        const { r, g, b } = colorMap[node.color];
-        const px = node.x / dpr;
-        const py = node.y / dpr;
-
-        // Soft outer glow
-        const glowGradient = ctx.createRadialGradient(px, py, currentRadius * 0.3, px, py, currentRadius * 3);
-        glowGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${Math.max(0, currentOpacity * 0.35)})`);
-        glowGradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${Math.max(0, currentOpacity * 0.1)})`);
-        glowGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-        ctx.fillStyle = glowGradient;
-        ctx.beginPath();
-        ctx.arc(px, py, currentRadius * 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Glass body
-        const fillGradient = ctx.createRadialGradient(
-          px - currentRadius * 0.25, py - currentRadius * 0.25, 0,
-          px, py, currentRadius,
-        );
-        fillGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${Math.max(0, currentOpacity * 0.5)})`);
-        fillGradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${Math.max(0, currentOpacity * 0.2)})`);
-        fillGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${Math.max(0, currentOpacity * 0.05)})`);
-        ctx.fillStyle = fillGradient;
-        ctx.beginPath();
-        ctx.arc(px, py, currentRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Subtle rim
-        ctx.beginPath();
-        ctx.arc(px, py, currentRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0, currentOpacity * 0.8)})`;
-        ctx.lineWidth = 1;
+      paths.forEach((path) => {
+        drawRoundedPath(ctx, path.points);
+        ctx.strokeStyle = "rgba(255, 114, 95, 0.8)";
+        ctx.lineWidth = 1.25;
         ctx.stroke();
 
-        // Specular highlight
-        const hlGradient = ctx.createRadialGradient(
-          px - currentRadius * 0.3, py - currentRadius * 0.35, 0,
-          px - currentRadius * 0.3, py - currentRadius * 0.35, currentRadius * 0.45,
-        );
-        hlGradient.addColorStop(0, `rgba(255, 255, 255, ${Math.max(0, currentOpacity * 0.7)})`);
-        hlGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-        ctx.fillStyle = hlGradient;
+        const phase = time * path.pulseSpeed + path.pulseOffset;
+        const pulseIndex = Math.floor(phase % (path.points.length - 1));
+        const start = path.points[pulseIndex];
+        const end = path.points[pulseIndex + 1];
+        const progress = phase % 1;
+        ctx.fillStyle = CORAL;
         ctx.beginPath();
-        ctx.arc(px - currentRadius * 0.3, py - currentRadius * 0.35, currentRadius * 0.45, 0, Math.PI * 2);
+        ctx.arc(start.x + (end.x - start.x) * progress, start.y + (end.y - start.y) * progress, 3.5, 0, Math.PI * 2);
         ctx.fill();
       });
 
-      animationRef.current = requestAnimationFrame(animate);
+      paths.flatMap((path) => path.points.slice(1, -1)).forEach((marker, index) => {
+        ctx.fillStyle = CORAL;
+        ctx.beginPath();
+        ctx.arc(marker.x, marker.y, 2.5 + Math.sin(time * 0.002 + index) * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animationFrame = requestAnimationFrame(animate);
     };
 
-    animate();
-
+    resize();
+    window.addEventListener("resize", resize);
+    animationFrame = requestAnimationFrame(animate);
     return () => {
-      window.removeEventListener("resize", updateCanvasSize);
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(animationFrame);
     };
   }, []);
 
-  return (
-    <>
-      {/* Light base */}
-      <div className="fixed inset-0 z-0 bg-[#fafafa]" />
-      {/* Subtle radial accent blurs */}
-      <div
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%), " +
-            "radial-gradient(ellipse at 80% 80%, rgba(168, 85, 247, 0.04) 0%, transparent 50%), " +
-            "radial-gradient(ellipse at 50% 60%, rgba(34, 197, 94, 0.025) 0%, transparent 40%)",
-        }}
-      />
-      {/* Glass nodes canvas */}
-      <canvas
-        ref={canvasRef}
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{ width: "100%", height: "100%" }}
-      />
-    </>
-  );
+  return <canvas ref={canvasRef} className="fixed inset-0 z-0 pointer-events-none" aria-hidden="true" />;
 }
