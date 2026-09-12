@@ -28,12 +28,6 @@ const endpoints = [
   [1010, 900], [1430, 640],
 ];
 
-const terminals = [
-  [315, 245], [390, 420], [470, 190], [760, 180], [760, 205],
-  [1060, 235], [1125, 380], [1110, 555], [320, 500], [410, 690],
-  [450, 730], [870, 735], [1280, 625], [1080, 795],
-];
-
 export default function StarsBackground() {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-white pointer-events-none" aria-hidden="true">
@@ -72,14 +66,10 @@ export default function StarsBackground() {
           );
         })}
         {endpoints.map(([cx, cy], index) => (
-          <circle
-            key={`endpoint-${cx}-${cy}-${index}`}
-            cx={cx}
-            cy={cy}
-            r="6.5"
-            fill={accent}
-            className="node-circle"
-          />
+          <g key={`endpoint-${cx}-${cy}-${index}`}>
+            <circle cx={cx} cy={cy} r="8.5" fill="white" className="node-circle-halo" />
+            <circle cx={cx} cy={cy} r="6.5" fill={accent} className="node-circle" />
+          </g>
         ))}
       </svg>
       <style jsx>{`
