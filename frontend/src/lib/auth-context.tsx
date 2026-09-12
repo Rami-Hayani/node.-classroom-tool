@@ -90,7 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     const data = await res.json();
-    setRole(data.role);
+    const savedRole = localStorage.getItem("authRole");
+    const resolvedRole = data.role === "unknown" && (savedRole === "teacher" || savedRole === "student")
+      ? savedRole
+      : data.role;
+    setRole(resolvedRole);
     setProfile(data.profile);
     setCourses(data.courses || []);
     setEnrollments(data.enrollments || []);
@@ -135,6 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.ok) return { error: data.error || "Login failed" };
 
     localStorage.setItem("token", data.access_token);
+    localStorage.setItem("authRole", data.role);
     setUser(data.user);
     setRole(data.role);
     setProfile(data.profile);
@@ -168,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!res.ok) return { error: data.error || "Signup failed" };
 
     localStorage.setItem("token", data.access_token);
+    localStorage.setItem("authRole", role);
     setUser(data.user);
     setRole(data.role);
 
@@ -183,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Best effort
     }
     localStorage.removeItem("token");
+    localStorage.removeItem("authRole");
     localStorage.removeItem("courseId");
     localStorage.removeItem("studentId");
     localStorage.removeItem("lectureId");

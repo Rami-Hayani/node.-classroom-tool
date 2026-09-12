@@ -28,6 +28,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate deployment configuration
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          test -n "$GCP_SA_KEY" || (echo "Missing GitHub secret: GCP_SA_KEY" && exit 1)
+          test -n "$SUPABASE_URL" || (echo "Missing GitHub secret: SUPABASE_URL" && exit 1)
+          test -n "$SUPABASE_KEY" || (echo "Missing GitHub secret: SUPABASE_KEY" && exit 1)
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo "Missing GitHub secret: SUPABASE_SERVICE_ROLE_KEY" && exit 1)
+          test -n "$OPENAI_API_KEY" || (echo "Missing GitHub secret: OPENAI_API_KEY" && exit 1)
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -54,4 +68,4 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --set-env-vars SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_KEY=${{ secrets.SUPABASE_KEY }},ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }},PERPLEXITY_API_KEY=${{ secrets.PERPLEXITY_API_KEY }}
+            --set-env-vars SUPABASE_URL=${{ secrets.SUPABASE_URL }},SUPABASE_KEY=${{ secrets.SUPABASE_KEY }},SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }},SUPABASE_JWT_SECRET=${{ secrets.SUPABASE_JWT_SECRET }},OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }},OPENAI_MODEL=gpt-4o-mini,PERPLEXITY_API_KEY=${{ secrets.PERPLEXITY_API_KEY }}

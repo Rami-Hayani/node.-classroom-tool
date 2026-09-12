@@ -384,7 +384,7 @@ function CustomTooltip({ active, payload }: any) {
         {concept.label}
       </div>
       {concept.category && (
-        <div className="text-[10px] text-gray-400 mb-2">{concept.category}</div>
+        <div className="text-[10px] text-gray-400 mb-2">{formatConceptLabel(concept.category)}</div>
       )}
       <div className="text-xs font-medium text-gray-600 mb-2">
         Avg confidence: {pct}%
@@ -441,7 +441,7 @@ export default function ConceptHeatmap({
         groups[cat].push(c);
       }
       return Object.entries(groups).map(([cat, items]) => ({
-        name: cat,
+        name: formatConceptLabel(cat),
         children: items.map((c) => ({
           name: formatConceptLabel(c.label),
           size: 1,

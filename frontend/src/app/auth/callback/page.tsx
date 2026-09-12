@@ -27,10 +27,12 @@ export default function AuthCallbackPage() {
       const metadata = data.session.user.user_metadata || {};
       const name = metadata.name || metadata.full_name || metadata.name || data.session.user.email?.split("@")[0] || "Student";
 
-      await supabaseBrowser.auth.updateUser({ data: { name, role: selectedRole } });
+      const { error: updateError } = await supabaseBrowser.auth.updateUser({ data: { name, role: selectedRole } });
+      if (updateError) throw updateError;
       const { data: refreshed } = await supabaseBrowser.auth.getSession();
       const token = refreshed.session?.access_token || data.session.access_token;
       localStorage.setItem("token", token);
+      localStorage.setItem("authRole", selectedRole);
 
       // Keep the existing course/profile context when this Google account
       // has signed in before. OAuth is authentication, not class creation.
