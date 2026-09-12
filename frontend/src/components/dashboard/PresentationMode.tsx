@@ -91,7 +91,7 @@ export default function PresentationMode({ lectureId, deck, slides, availableDec
     } catch (error) { setPollError(error instanceof Error ? error.message : "Could not close the poll"); }
   }
 
-  return <div className="fixed inset-0 z-[10000] flex flex-col bg-[#111318] text-white">
+  return <div className="fixed inset-0 z-50 flex flex-col bg-[#111318] text-white">
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-[#17191f] px-5"><div className="flex min-w-0 items-center gap-3"><span className="font-[family-name:var(--font-geist-sans)] text-xl font-medium">node.</span><span className="text-xs text-white/45">Presentation mode</span>{slides.length > 0 && <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] text-white/60">{currentSlideIndex + 1} / {slides.length}</span>}</div><div className="flex items-center gap-2"><button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 rounded-lg border border-white/15 px-3 py-2 text-xs text-white/70 hover:bg-white/10"><FileUp size={14} /> Replace deck</button><button onClick={onClose} className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-white" aria-label="Close presentation"><X size={17} /></button><input ref={fileRef} type="file" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onUploadFile(file); }} /></div></header>
     {!lectureId && <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] text-white/25">Start Class when you are ready to send questions to students.</p>}
   </div>;
