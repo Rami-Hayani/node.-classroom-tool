@@ -183,7 +183,7 @@ export default function LandingPage() {
             data-circuit-side="top"
             className="max-w-[min(90vw,52rem)] text-base sm:text-xl lg:text-2xl text-gray-600 tracking-tight text-center mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light"
           >
-            Know what your class understands and what to teach next.
+            See what your class understands. Know exactly what to teach next.
           </p>
           <button
             onClick={() => setShowAuth(true)}

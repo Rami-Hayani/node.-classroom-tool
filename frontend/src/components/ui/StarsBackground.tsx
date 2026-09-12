@@ -3,31 +3,27 @@
 const accent = "#286da8";
 
 const paths = [
-  "M0 105H120Q155 105 155 140V245H315",
-  "M0 300H180Q220 300 220 340V420H390",
-  "M95 0V72Q95 108 130 108H350V190H470",
-  "M395 0V65Q395 100 430 100H625V180H760",
-  "M1030 0V72Q1030 108 995 108H870V205H760",
-  "M1345 0V92Q1345 130 1308 130H1190V235H1060",
-  "M1440 220H1320Q1280 220 1280 258V380H1125",
-  "M1440 450H1300Q1260 450 1260 488V555H1110",
-  "M0 610H130Q170 610 170 570V500H320",
-  "M0 800H210Q250 800 250 760V690H410",
-  "M80 900V835Q80 800 115 800H300V730H450",
-  "M530 900V840Q530 805 565 805H735V735H870",
-  "M930 900V835Q930 800 965 800H1135V720H1280",
-  "M1440 735H1360Q1320 735 1320 695V625H1200",
-  "M1440 885H1250Q1210 885 1210 845V795H1080",
-];
-
-const diamonds = [
-  [155, 105], [220, 300], [395, 100], [1030, 108], [1280, 220],
-  [1260, 450], [170, 610], [250, 800], [530, 805], [930, 800],
-  [1320, 735], [1210, 885],
+  "M0 110H120Q175 110 175 165V285H390",
+  "M0 405H170Q225 405 225 460V555H470",
+  "M90 0V70Q90 125 145 125H365Q420 125 420 180V245H560",
+  "M420 0V65Q420 120 475 120H700Q755 120 755 175V245H880",
+  "M1040 0V75Q1040 130 985 130H825Q770 130 770 185V260H650",
+  "M1360 0V90Q1360 145 1305 145H1190Q1135 145 1135 200V285H1020",
+  "M1440 235H1320Q1265 235 1265 290V410H1080",
+  "M1440 490H1290Q1235 490 1235 545V625H1080",
+  "M0 650H125Q180 650 180 595V505H340",
+  "M0 825H200Q255 825 255 770V690H470",
+  "M90 900V845Q90 790 145 790H315Q370 790 370 735V650H520",
+  "M560 900V840Q560 785 615 785H800Q855 785 855 730V650H980",
+  "M960 900V845Q960 790 1015 790H1190Q1245 790 1245 735V650H1370",
+  "M1440 770H1350Q1295 770 1295 715V650H1170",
+  "M1440 900H1260Q1205 900 1205 845V790H1060",
 ];
 
 const circles = [
-  [220, 340], [1308, 130], [1260, 488], [250, 760], [965, 800],
+  [175, 110], [225, 405], [90, 125], [420, 120], [1040, 130], [1360, 145],
+  [1265, 235], [1235, 490], [180, 650], [255, 825], [370, 790], [560, 785],
+  [960, 790], [1295, 770], [1205, 900],
 ];
 
 const terminals = [
@@ -73,21 +69,6 @@ export default function StarsBackground() {
           </g>
           );
         })}
-        {diamonds.map(([cx, cy]) => (
-          <rect
-            key={`diamond-${cx}-${cy}`}
-            x={cx - 8}
-            y={cy - 8}
-            width="16"
-            height="16"
-            rx="1"
-            fill="white"
-            stroke={accent}
-            strokeWidth="2"
-            transform={`rotate(45 ${cx} ${cy})`}
-            className="node-marker"
-          />
-        ))}
         {circles.map(([cx, cy]) => (
           <circle
             key={`circle-${cx}-${cy}`}
@@ -98,18 +79,6 @@ export default function StarsBackground() {
             className="node-circle"
           />
         ))}
-        {terminals.map(([cx, cy]) => (
-          <rect
-            key={`terminal-${cx}-${cy}`}
-            x={cx - 5}
-            y={cy - 5}
-            width="10"
-            height="10"
-            rx="1"
-            fill={accent}
-            className="node-terminal"
-          />
-        ))}
       </svg>
       <style jsx>{`
         .node-circuit-highlight {
@@ -117,15 +86,8 @@ export default function StarsBackground() {
           opacity: 0.1;
           animation: circuit-flow 6s linear infinite, circuit-fade 2.8s ease-in-out infinite;
         }
-        .node-marker {
-          opacity: 0.78;
-          animation: marker-fade 3.8s ease-in-out infinite;
-        }
-        .node-terminal {
-          opacity: 0.72;
-        }
         .node-circle {
-          opacity: 0.82;
+          opacity: 0.78;
           animation: marker-fade 3.8s ease-in-out infinite;
         }
         @keyframes circuit-flow {

@@ -123,57 +123,6 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
             }}
           />
 
-          {/* SOURCE — filled circle, no stroke. Keep the hero center clear. */}
-          {!(route.source.x > width * 0.4 && route.source.x < width * 0.6 &&
-            route.source.y > height * 0.35 && route.source.y < height * 0.75) && (
-            <circle
-              cx={route.source.x}
-              cy={route.source.y}
-              r="4"
-              fill="#286da8"
-              stroke="none"
-            />
-          )}
-
-          {/* TARGET — filled square, no stroke. Keep the hero center clear. */}
-          {!(route.target.x > width * 0.4 && route.target.x < width * 0.6 &&
-            route.target.y > height * 0.35 && route.target.y < height * 0.75) && (
-            <rect
-              x={route.target.x - 4}
-              y={route.target.y - 4}
-              width="8"
-              height="8"
-              rx="1"
-              fill="#286da8"
-              stroke="none"
-            />
-          )}
-
-          {/* BENDS — hollow diamond: white fill, accent outline, nothing else */}
-          {route.bends.map((bend, bendIndex) => {
-            const isCentralHeroMarker =
-              bend.x > width * 0.4 && bend.x < width * 0.6 &&
-              bend.y > height * 0.35 && bend.y < height * 0.75;
-
-            if (isCentralHeroMarker) return null;
-
-            return (
-              <rect
-                key={`${bend.x}-${bend.y}-${bendIndex}`}
-                x={bend.x - 6}
-                y={bend.y - 6}
-                width="12"
-                height="12"
-                rx="1"
-                transform={`rotate(45 ${bend.x} ${bend.y})`}
-                fill="white"
-                stroke="#286da8"
-                strokeWidth="1.5"
-                vectorEffect="non-scaling-stroke"
-                opacity="0.82"
-              />
-            );
-          })}
         </g>
       ))}
       <style>{`

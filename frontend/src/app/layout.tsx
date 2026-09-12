@@ -27,7 +27,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "node",
-  description: "Live classroom companion with personalized knowledge graphs",
+  description: "Node gives teachers real-time formative insight into what their class understands, where misconceptions begin, and what to teach next.",
 };
 
 export default function RootLayout({
