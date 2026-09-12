@@ -167,7 +167,7 @@ export default function LandingPage() {
         <StarsBackground />
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
-            className="font-sans font-normal text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#315a7d] tracking-[-0.09em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
+            className="font-sans font-normal text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#286da8] tracking-[-0.09em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
             node.
           </h1>
@@ -176,7 +176,7 @@ export default function LandingPage() {
           </p>
           <button
             onClick={() => setShowAuth(true)}
-            className="px-12 py-4 rounded-full border border-[#315a7d]/80 text-gray-700 font-medium text-base hover:bg-[#315a7d] hover:text-white hover:border-[#315a7d] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
+            className="px-12 py-4 rounded-full border border-[#286da8]/80 text-gray-700 font-medium text-base hover:bg-[#286da8] hover:text-white hover:border-[#286da8] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
           >
             Get Started
           </button>

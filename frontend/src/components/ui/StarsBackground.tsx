@@ -1,6 +1,6 @@
 "use client";
 
-const accent = "#315a7d";
+const accent = "#286da8";
 
 const paths = [
   "M0 105H120Q155 105 155 140V245H315",
