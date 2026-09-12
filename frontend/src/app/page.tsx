@@ -167,8 +167,7 @@ export default function LandingPage() {
         <StarsBackground />
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
-            className="font-[family-name:var(--font-instrument-serif)] text-7xl sm:text-8xl text-gray-800 tracking-tight mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
-            style={{ letterSpacing: "-0.03em" }}
+            className="font-[family-name:var(--font-geist-sans)] font-medium text-7xl sm:text-8xl text-gray-800 tracking-[-0.055em] mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
             Node
           </h1>
