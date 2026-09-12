@@ -80,11 +80,12 @@ def upload_pdf():
 
     # Insert nodes and build label->ID map
     node_id_map = {}
-    for label, description in result['graph']['nodes'].items():
+    for syllabus_order, (label, description) in enumerate(result['graph']['nodes'].items()):
         node = supabase.table('concept_nodes').insert({
             'course_id': course_id,
             'label': label,
-            'description': description
+            'description': description,
+            'y': syllabus_order,
         }).execute().data[0]
         node_id_map[label] = node['id']
 

@@ -1,8 +1,8 @@
-# Prereq — Shared Development Guide
+# Node — Shared Development Guide
 
 ## Project Overview
 
-Prereq is a live Zoom classroom companion with personalized knowledge graphs per student. Two services, one shared Postgres database, deployed on Render.
+Node is a live classroom companion with personalized knowledge graphs per student. Two services, one shared Postgres database, deployed on Render.
 
 **PRD:** `tasks/prd-prereq.md` — read this first for full context on goals, user stories, and functional requirements.
 

@@ -11,7 +11,7 @@ interface PollState {
   question: string | null;
   conceptLabel: string | null;
   status: "idle" | "preview" | "active" | "closed";
-  results: { green: number; yellow: number; red: number } | null;
+  results: { green: number; yellow: number; orange: number; red: number } | null;
   totalResponses: number;
 }
 
@@ -111,6 +111,7 @@ export default function PollControls({ lectureId, concepts, activeConceptId, con
         results: data.distribution ? {
           green: data.distribution.green || 0,
           yellow: data.distribution.yellow || 0,
+          orange: data.distribution.orange || 0,
           red: data.distribution.red || 0,
         } : null,
         totalResponses: data.totalResponses || 0,

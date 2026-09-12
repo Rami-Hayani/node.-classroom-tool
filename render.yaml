@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: prereq-api
+    name: node-api
     runtime: python
     buildCommand: cd api && pip install -r requirements.txt
     startCommand: cd api && gunicorn app:app --bind 0.0.0.0:$PORT
@@ -13,7 +13,7 @@ services:
         sync: false
 
   - type: web
-    name: prereq-frontend
+    name: node-frontend
     runtime: node
     buildCommand: cd frontend && rm -rf .next && npm install && npm run build
     startCommand: cd frontend && npx tsx server/index.ts
@@ -21,12 +21,12 @@ services:
       - key: FLASK_API_URL
         fromService:
           type: web
-          name: prereq-api
+          name: node-api
           envVarKey: RENDER_EXTERNAL_URL
       - key: NEXT_PUBLIC_FLASK_API_URL
         fromService:
           type: web
-          name: prereq-api
+          name: node-api
           envVarKey: RENDER_EXTERNAL_URL
       - key: SUPABASE_URL
         sync: false

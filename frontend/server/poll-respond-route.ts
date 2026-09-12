@@ -56,7 +56,7 @@ async function evaluateResponse(
   question: string,
   expectedAnswer: string,
   studentAnswer: string
-): Promise<{ eval_result: "correct" | "partial" | "wrong"; feedback: string; reasoning: string }> {
+): Promise<{ eval_result: "correct" | "partial" | "wrong"; score: number; feedback: string; reasoning: string }> {
   const prompt = `You are evaluating a student's answer to a poll question in a live lecture.
 
 QUESTION: ${question}
@@ -70,11 +70,12 @@ Evaluate whether the student's answer demonstrates understanding of the concept.
 - "correct" if they show clear understanding (even if wording differs)
 - "partial" if they show some understanding but miss key points
 - "wrong" if they misunderstand or give an incorrect answer
+- "score" as an integer percentage from 0 to 100. Use 100 for fully correct, 50 for partly correct, and 0 for completely wrong.
 
 Also provide brief feedback (1-2 sentences) for the student.
 
 Return ONLY valid JSON (no markdown):
-{ "eval_result": "correct"|"partial"|"wrong", "feedback": "...", "reasoning": "..." }`;
+{ "eval_result": "correct"|"partial"|"wrong", "score": 0, "feedback": "...", "reasoning": "..." }`;
 
   try {
     let cleaned = (await openAIText(prompt, { maxTokens: 256 })).trim();
@@ -83,8 +84,11 @@ Return ONLY valid JSON (no markdown):
     }
 
     const parsed = JSON.parse(cleaned);
+    const rawScore = Number(parsed.score);
+    const fallbackScore = parsed.eval_result === "correct" ? 100 : parsed.eval_result === "wrong" ? 0 : 50;
     return {
       eval_result: parsed.eval_result || "partial",
+      score: Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : fallbackScore,
       feedback: parsed.feedback || "Answer recorded.",
       reasoning: parsed.reasoning || ""
     };
@@ -92,6 +96,7 @@ Return ONLY valid JSON (no markdown):
     console.error("[poll-respond] Evaluation error:", err);
     return {
       eval_result: "partial",
+      score: 50,
       feedback: "Your answer has been recorded.",
       reasoning: "Evaluation error"
     };
@@ -129,6 +134,7 @@ router.post("/api/polls/:pollId/respond", json(), async (req, res) => {
       answer,
       evaluation: {
         eval_result: evaluation.eval_result,
+        score: evaluation.score,
         feedback: evaluation.feedback,
         reasoning: evaluation.reasoning,
       },

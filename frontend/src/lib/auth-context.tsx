@@ -82,6 +82,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Supabase persists its refresh token in localStorage. If that token was
+  // revoked or replaced, clear the local session before GoTrue can surface an
+  // unhandled "Invalid Refresh Token" error to the dev overlay.
+  useEffect(() => {
+    if (!supabaseBrowser) return;
+    const supabase = supabaseBrowser;
+    let cancelled = false;
+    const clearInvalidSession = () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("authRole");
+      localStorage.removeItem("oauthRole");
+      void supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    };
+
+    supabase.auth.getSession().catch(() => {
+      if (!cancelled) clearInvalidSession();
+    });
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        localStorage.removeItem("token");
+        localStorage.removeItem("authRole");
+      }
+    });
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
   const loadProfile = useCallback(async () => {
     const res = await flaskFetch("/api/auth/me");
     if (!res.ok) {

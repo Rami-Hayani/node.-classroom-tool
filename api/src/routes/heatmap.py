@@ -3,20 +3,10 @@ from flask import request, jsonify, Blueprint
 from ..db import supabase
 from ..middleware.auth import optional_auth
 from ..cache import cache_get, cache_set
+from ..services.assessment import score_from_evaluation, score_to_color
 
 load_dotenv()
 heatmap = Blueprint("heatmap", __name__)
-
-
-def confidence_to_color(confidence):
-    if confidence == 0.0:
-        return "gray"
-    elif confidence < 0.4:
-        return "red"
-    elif confidence < 0.7:
-        return "yellow"
-    else:
-        return "green"
 
 
 @heatmap.route('/api/courses/<course_id>/heatmap', methods=['GET'])
@@ -39,34 +29,35 @@ def get_heatmap(course_id):
     if not concepts:
         return jsonify({"concepts": [], "total_students": total_students}), 200
 
-    # Batch: fetch ALL mastery records for all concepts in one query
     concept_ids = [c['id'] for c in concepts]
-    all_mastery = supabase.table('student_mastery').select('student_id, concept_id, confidence').in_(
-        'concept_id', concept_ids
-    ).limit(5000).execute().data
-
-    # Group mastery records by concept_id in Python
-    mastery_by_concept = {}
-    for record in all_mastery:
-        cid = record['concept_id']
-        mastery_by_concept.setdefault(cid, {})[record['student_id']] = record.get('confidence') or 0.0
+    lecture_ids = [l['id'] for l in supabase.table('lectures').select('id').eq('course_id', course_id).execute().data]
+    polls = supabase.table('poll_questions').select('id, concept_id').in_('lecture_id', lecture_ids).in_('concept_id', concept_ids).execute().data if lecture_ids else []
+    poll_ids = [p['id'] for p in polls]
+    poll_concepts = {p['id']: p.get('concept_id') for p in polls}
+    responses = supabase.table('poll_responses').select('question_id, student_id, evaluation').in_('question_id', poll_ids).execute().data if poll_ids else []
+    scores_by_concept_student = {}
+    for response in responses:
+        concept_id = poll_concepts.get(response['question_id'])
+        score = score_from_evaluation(response.get('evaluation'))
+        if concept_id and score is not None:
+            scores_by_concept_student.setdefault(concept_id, {}).setdefault(response['student_id'], []).append(score)
 
     heatmap_data = []
     for concept in concepts:
         concept_id = concept['id']
-        confidence_map = mastery_by_concept.get(concept_id, {})
-        confidences = [confidence_map.get(student['id'], 0.0) for student in students]
+        score_map = scores_by_concept_student.get(concept_id, {})
+        scores = [sum(values) / len(values) for values in score_map.values()]
 
         # Count colors
-        distribution = {"green": 0, "yellow": 0, "red": 0, "gray": 0}
-        total_confidence = 0
-        for conf in confidences:
-            distribution[confidence_to_color(conf)] += 1
-            total_confidence += conf
+        distribution = {"green": 0, "yellow": 0, "orange": 0, "red": 0, "gray": 0}
+        for student in students:
+            student_scores = score_map.get(student['id'])
+            score = sum(student_scores) / len(student_scores) if student_scores else None
+            distribution[score_to_color(score)] += 1
 
-        avg_confidence = total_confidence / len(confidences) if confidences else 0.0
+        avg_score = sum(scores) / len(scores) if scores else None
 
-        assessed_count = distribution['green'] + distribution['yellow'] + distribution['red']
+        assessed_count = distribution['green'] + distribution['yellow'] + distribution['orange'] + distribution['red']
         mastered_count = distribution['green']
         struggling_count = distribution['red']
         split_class = (
@@ -82,7 +73,9 @@ def get_heatmap(course_id):
             "label": concept['label'],
             "category": concept.get('category', ''),
             "distribution": distribution,
-            "avg_confidence": round(avg_confidence, 2),
+            "avg_confidence": round(avg_score / 100, 3) if avg_score is not None else 0.0,
+            "assessment_average": round(avg_score, 1) if avg_score is not None else None,
+            "assessment_count": len(scores),
             "struggling_count": struggling_count,
             "mastered_count": mastered_count,
             "assessed_count": assessed_count,

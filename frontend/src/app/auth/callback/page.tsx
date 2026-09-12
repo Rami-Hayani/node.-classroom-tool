@@ -19,6 +19,11 @@ export default function AuthCallbackPage() {
 
       const { data, error: sessionError } = await supabaseBrowser.auth.getSession();
       if (sessionError || !data.session) {
+        // Remove revoked refresh tokens so the next attempt starts cleanly.
+        await supabaseBrowser.auth.signOut({ scope: "local" }).catch(() => {});
+        localStorage.removeItem("token");
+        localStorage.removeItem("authRole");
+        localStorage.removeItem("oauthRole");
         setError(sessionError?.message || "Google sign-in did not return a session.");
         return;
       }

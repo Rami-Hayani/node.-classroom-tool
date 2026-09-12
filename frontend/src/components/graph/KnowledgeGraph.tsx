@@ -17,10 +17,13 @@ export interface GraphNode {
   category?: string;
   difficulty?: number;
   avgConfidence?: number;
-  distribution?: { green: number; yellow: number; red: number; gray: number };
+  distribution?: { green: number; yellow: number; orange: number; red: number; gray: number };
   strugglingCount?: number;
   masteredCount?: number;
   splitClass?: boolean;
+  syllabus_order?: number;
+  assessment_average?: number | null;
+  assessment_count?: number;
 }
 
 export interface GraphEdge {
@@ -126,7 +129,8 @@ export default function KnowledgeGraph({
       const cached = positionCacheRef.current.get(n.id);
       return {
         ...n,
-        relevance: (n.difficulty || 3) / 5,
+        // Longer topic descriptions carry more information and get a larger node.
+        relevance: Math.min(1.5, Math.max(0.4, (n.description?.length || 80) / 180)),
         ...(cached ? { x: cached.x, y: cached.y } : {}),
       };
     });
@@ -134,26 +138,6 @@ export default function KnowledgeGraph({
     const linksCopy: SimLink[] = edges
       .filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
       .map((e) => ({ source: e.source, target: e.target }));
-
-    // Build adjacency and compute levels via relaxed edge propagation
-    const levels: Record<string, number> = {};
-    nodesCopy.forEach((n) => { levels[n.id] = 0; });
-
-    for (let i = 0; i < nodesCopy.length; i++) {
-      linksCopy.forEach((l) => {
-        const s = typeof l.source === "object" ? l.source.id : l.source;
-        const t = typeof l.target === "object" ? l.target.id : l.target;
-        if (levels[s] !== undefined && levels[t] !== undefined) {
-          if (levels[t] < levels[s] + 1) {
-            levels[t] = levels[s] + 1;
-          }
-        }
-      });
-    }
-
-    nodesCopy.forEach((n) => {
-      n.level = levels[n.id];
-    });
 
     setSimNodes(nodesCopy);
     setSimLinks(linksCopy);
@@ -189,14 +173,13 @@ export default function KnowledgeGraph({
       return;
     }
 
-    const paddingX = 100;
-    const availableWidth = bounds.width - paddingX * 2;
-    const maxLevel = Math.max(...simNodes.map((n) => n.level || 0));
-
-    const getTargetX = (node: SimNode) => {
-      if (maxLevel === 0) return bounds.width / 2;
-      return paddingX + ((node.level || 0) / maxLevel) * availableWidth;
-    };
+    const orderedNodes = [...simNodes].sort((a, b) =>
+      (a.syllabus_order ?? a.index ?? 0) - (b.syllabus_order ?? b.index ?? 0),
+    );
+    const syllabusIndex = new Map(orderedNodes.map((node, index) => [node.id, index]));
+    const columnX = bounds.width / 2;
+    const rowGap = 112;
+    const getTargetY = (node: SimNode) => 40 + (syllabusIndex.get(node.id) ?? 0) * rowGap;
 
     const simulation = d3
       .forceSimulation(simNodes)
@@ -207,20 +190,20 @@ export default function KnowledgeGraph({
           .id((d) => d.id)
           .distance(180),
       )
-      .force("charge", d3.forceManyBody().strength(-500))
+      .force("charge", d3.forceManyBody().strength(-180))
       .force(
         "collide",
         d3.forceCollide<SimNode>().radius((d) => getNodeRadius(d.label, d.relevance || 0.6) * 2),
       )
       .force(
         "x",
-        d3.forceX<SimNode>().x((d) => getTargetX(d)).strength(0.8),
+        d3.forceX<SimNode>().x(columnX).strength(1.2),
       )
-      .force("y", d3.forceY(bounds.height / 2).strength(0.1));
+      .force("y", d3.forceY<SimNode>().y(getTargetY).strength(1.1));
 
     // Pre-stabilize synchronously — no async tick callbacks
     simulation.stop();
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 220; i++) {
       simulation.tick();
     }
 
@@ -270,11 +253,11 @@ export default function KnowledgeGraph({
     };
   }, [bounds.width, bounds.height, simNodes.length]);
 
-  // Rank-based reveal: sort nodes by x, assign evenly-spaced thresholds
+  // Rank-based reveal follows syllabus order from top to bottom.
   const revealRank = useMemo(() => {
     const positioned = simNodes.filter((n) => n.x != null);
     if (positioned.length === 0) return new Map<string, number>();
-    const sorted = [...positioned].sort((a, b) => a.x! - b.x!);
+    const sorted = [...positioned].sort((a, b) => a.y! - b.y!);
     const map = new Map<string, number>();
     sorted.forEach((n, i) => {
       map.set(n.id, sorted.length > 1 ? i / (sorted.length - 1) : 0);
@@ -517,7 +500,7 @@ export default function KnowledgeGraph({
           {simNodes.map((node) => {
             if (node.x === undefined || node.y === undefined) return null;
             const displayLabel = formatConceptLabel(node.label);
-            const size = mode === "professor" ? 44 : getNodeRadius(displayLabel, node.relevance || 0.6);
+            const size = getNodeRadius(displayLabel, node.relevance || 0.6);
             const nodeConfidence = mode === "professor" ? (node.avgConfidence ?? 0) : (node.confidence ?? 0);
             const borderColor = confidenceToNodeBorder(nodeConfidence);
             const isInSet = activeSet.has(node.id);
