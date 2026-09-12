@@ -103,7 +103,7 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
         <g key={`${route.source.x}-${route.target.x}-${index}`}>
           <path
             d={route.d}
-            stroke="var(--circuit-accent, #286da8)"
+            stroke="#286da8"
             strokeWidth="1.5"
             opacity="0.28"
             strokeLinecap="round"
@@ -112,18 +112,38 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
           <path
             d={route.d}
             pathLength="100"
-            className="circuit-flow-path"
-            style={{ animationDelay: `${index * -0.8}s` }}
+            stroke="#286da8"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="12 88"
+            style={{
+              animation: "circuit-flow 6s linear infinite, circuit-fade 3s ease-in-out infinite",
+              animationDelay: `${index * -0.8}s`,
+            }}
           />
-          <circle cx={route.source.x} cy={route.source.y} r="4" className="circuit-content-circle" />
+
+          {/* SOURCE — filled circle, no stroke */}
+          <circle
+            cx={route.source.x}
+            cy={route.source.y}
+            r="4"
+            fill="#286da8"
+            stroke="none"
+          />
+
+          {/* TARGET — filled square, no stroke */}
           <rect
             x={route.target.x - 4}
             y={route.target.y - 4}
             width="8"
             height="8"
             rx="1"
-            className="circuit-content-square"
+            fill="#286da8"
+            stroke="none"
           />
+
+          {/* BENDS — hollow diamond: white fill, accent outline, nothing else */}
           {route.bends.map((bend, bendIndex) => (
             <rect
               key={`${bend.x}-${bend.y}-${bendIndex}`}
@@ -133,31 +153,16 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
               height="12"
               rx="1"
               transform={`rotate(45 ${bend.x} ${bend.y})`}
-              className="circuit-junction-diamond"
+              fill="white"
+              stroke="#286da8"
+              strokeWidth="1.5"
+              vectorEffect="non-scaling-stroke"
+              opacity="0.82"
             />
           ))}
         </g>
       ))}
       <style>{`
-        .circuit-flow-path {
-          stroke: var(--circuit-accent, #286da8);
-          stroke-width: 2.5;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          stroke-dasharray: 12 88;
-          opacity: 0.12;
-          animation: circuit-flow 6s linear infinite, circuit-fade 3s ease-in-out infinite;
-        }
-        .circuit-content-circle,
-        .circuit-content-square,
-        .circuit-junction-diamond {
-          fill: white;
-          stroke: var(--circuit-accent, #286da8);
-          vector-effect: non-scaling-stroke;
-        }
-        .circuit-content-circle { fill: var(--circuit-accent, #286da8); stroke: none; }
-        .circuit-content-square { fill: var(--circuit-accent, #286da8); stroke: none; }
-        .circuit-junction-diamond { stroke-width: 1.5; opacity: 0.82; }
         @keyframes circuit-flow {
           from { stroke-dashoffset: 100; }
           to { stroke-dashoffset: 0; }
@@ -165,9 +170,6 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
         @keyframes circuit-fade {
           0%, 100% { opacity: 0.08; }
           45%, 60% { opacity: 0.72; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .circuit-flow-path { animation: none; opacity: 0.4; }
         }
       `}</style>
     </svg>
