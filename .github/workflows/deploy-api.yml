@@ -10,11 +10,11 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: shay-site
+  PROJECT_ID: sturdy-conduit-465021-j4
   SERVICE_NAME: prereq-api
   REGION: us-central1
   REGISTRY: us-central1-docker.pkg.dev
-  IMAGE_NAME: us-central1-docker.pkg.dev/shay-site/prereq/prereq-api
+  IMAGE_NAME: us-central1-docker.pkg.dev/sturdy-conduit-465021-j4/prereq/prereq-api
 
 jobs:
   deploy:
