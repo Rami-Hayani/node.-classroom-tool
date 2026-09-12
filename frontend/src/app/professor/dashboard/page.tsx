@@ -21,6 +21,7 @@ export default function ProfessorDashboard() {
   const { user, profile, role, courses: authCourses, signOut } = useAuth();
   const [courseId, setCourseId] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
+  const [joinCodeLoading, setJoinCodeLoading] = useState(false);
   const [lectureId, setLectureId] = useState<string | null>(null);
   const [heatmapData, setHeatmapData] = useState<HeatmapConcept[]>([]);
   const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
@@ -48,6 +49,13 @@ export default function ProfessorDashboard() {
       const selected = authCourses.find((course) => course.id === stored) || authCourses[0];
       setCourseId(selected.id);
       setJoinCode(selected.join_code || null);
+      if (!selected.join_code) {
+        setJoinCodeLoading(true);
+        flaskApi.post(`/api/courses/${selected.id}/join-code`, {})
+          .then((course: { join_code?: string }) => setJoinCode(course.join_code || null))
+          .catch(() => setJoinCode(null))
+          .finally(() => setJoinCodeLoading(false));
+      }
       localStorage.setItem("courseId", selected.id);
       return;
     }
@@ -83,8 +91,15 @@ export default function ProfessorDashboard() {
   useEffect(() => {
     if (!courseId) return;
     flaskApi.get(`/api/courses/${courseId}/graph`)
-      .then((data) => data as { nodes: GraphNode[]; edges: GraphEdge[] })
-      .then((data) => { setGraphNodes(data.nodes || []); setGraphEdges(data.edges || []); })
+      .then((data) => data as { nodes: GraphNode[]; edges: (GraphEdge & { source_id?: string; target_id?: string })[] })
+      .then((data) => {
+        setGraphNodes(data.nodes || []);
+        // Flask returns source_id/target_id; normalize once for the graph renderer.
+        setGraphEdges((data.edges || []).map((edge) => ({
+          source: edge.source || edge.source_id || "",
+          target: edge.target || edge.target_id || "",
+        })).filter((edge) => edge.source && edge.target));
+      })
       .catch(() => {});
   }, [courseId]);
 
@@ -218,6 +233,13 @@ export default function ProfessorDashboard() {
     if (!selected) return;
     setCourseId(selected.id);
     setJoinCode(selected.join_code || null);
+    if (!selected.join_code) {
+      setJoinCodeLoading(true);
+      flaskApi.post(`/api/courses/${selected.id}/join-code`, {})
+        .then((course: { join_code?: string }) => setJoinCode(course.join_code || null))
+        .catch(() => setJoinCode(null))
+        .finally(() => setJoinCodeLoading(false));
+    }
     setLectureId(null);
     setActiveConceptId(null);
     setSelectedConceptId(null);
@@ -251,18 +273,21 @@ export default function ProfessorDashboard() {
           {lectureId && (
             <span className="text-xs text-gray-500">{connectedStudentCount} students connected</span>
           )}
-          {joinCode && (
+          {courseId && (
             <button
               onClick={() => {
+                if (!joinCode) return;
                 navigator.clipboard.writeText(joinCode);
                 setCodeCopied(true);
                 setTimeout(() => setCodeCopied(false), 2000);
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 border border-gray-200 hover:bg-gray-200 transition-colors cursor-pointer"
-              title="Click to copy join code"
+              disabled={!joinCode}
+              className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:cursor-wait disabled:opacity-70"
+              title="Click to copy the student join code"
             >
-              <span className="text-[10px] font-medium text-gray-600 uppercase tracking-wider font-mono">
-                {codeCopied ? "Copied!" : joinCode}
+              <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">Join code</span>
+              <span className="text-xs font-bold text-indigo-800 tracking-widest font-mono">
+                {codeCopied ? "Copied!" : joinCode || (joinCodeLoading ? "Loading…" : "Unavailable")}
               </span>
             </button>
           )}

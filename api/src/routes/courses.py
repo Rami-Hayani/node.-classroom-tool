@@ -58,6 +58,13 @@ def get_courses():
         if teacher:
             result = supabase.table('courses').select('*').eq('teacher_id', teacher[0]['id']).execute()
             if result.data:
+                # Backfill codes for courses created before join-code support.
+                for course in result.data:
+                    if not course.get('join_code'):
+                        join_code = _generate_join_code()
+                        updated = supabase.table('courses').update({'join_code': join_code}).eq('id', course['id']).execute()
+                        if updated.data:
+                            course.update(updated.data[0])
                 return jsonify(result.data), 200
             # Teacher has no courses — fall through to return all (picks up seeded courses)
 
@@ -81,7 +88,42 @@ def get_course(course_id):
     if not result.data:
         return jsonify({'error': 'Course not found'}), 404
 
-    return jsonify(result.data[0]), 200
+    course = result.data[0]
+
+    # Older courses may predate join-code generation. Generate one lazily for
+    # the owning teacher so the professor dashboard always has a code to show.
+    if g.user and not course.get('join_code'):
+        teacher = supabase.table('teachers').select('id').eq('auth_id', g.user['sub']).execute().data
+        if teacher and course.get('teacher_id') == teacher[0]['id']:
+            join_code = _generate_join_code()
+            updated = supabase.table('courses').update({'join_code': join_code}).eq('id', course_id).execute()
+            if updated.data:
+                course = updated.data[0]
+
+    return jsonify(course), 200
+
+
+@courses.route('/api/courses/<course_id>/join-code', methods=['POST'])
+@require_auth
+def ensure_course_join_code(course_id):
+    """Return the owning teacher's course code, creating one if needed."""
+    teacher = supabase.table('teachers').select('id').eq('auth_id', g.user['sub']).execute().data
+    if not teacher:
+        return jsonify({'error': 'Only a professor can manage a course join code'}), 403
+
+    course_rows = supabase.table('courses').select('id, teacher_id, join_code').eq('id', course_id).execute().data
+    if not course_rows or course_rows[0].get('teacher_id') != teacher[0]['id']:
+        return jsonify({'error': 'Course not found'}), 404
+
+    course = course_rows[0]
+    if not course.get('join_code'):
+        updated = supabase.table('courses').update({'join_code': _generate_join_code()}).eq('id', course_id).execute()
+        if updated.data:
+            course = updated.data[0]
+
+    if not course.get('join_code'):
+        return jsonify({'error': 'Could not create a join code. Confirm the join_code column exists in Supabase.'}), 500
+    return jsonify({'course_id': course_id, 'join_code': course['join_code']}), 200
 
 
 @courses.route('/api/courses/enroll', methods=['POST'])

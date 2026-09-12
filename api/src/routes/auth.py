@@ -29,7 +29,10 @@ def signup():
 
     if not res.session:
         # Supabase may require email confirmation
-        return jsonify({"error": "Signup succeeded but no session returned. Check email confirmation settings."}), 400
+        return jsonify({
+            "confirmation_required": True,
+            "message": "Account created. Check your email to confirm your account, then sign in.",
+        }), 200
 
     access_token = res.session.access_token
     user = res.user

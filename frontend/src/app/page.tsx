@@ -18,6 +18,7 @@ export default function LandingPage() {
   const [name, setName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
 
@@ -43,6 +44,7 @@ export default function LandingPage() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNotice("");
     setSubmitting(true);
     try {
       if (mode === "login") {
@@ -52,6 +54,7 @@ export default function LandingPage() {
         if (!name.trim()) { setError("Name is required"); setSubmitting(false); return; }
         const result = await signUp(email, password, name, roleToggle);
         if (result.error) setError(result.error);
+        else if (result.confirmationRequired) setNotice(result.message || "Check your email to confirm your account, then sign in.");
       }
     } finally {
       setSubmitting(false);
@@ -146,6 +149,7 @@ export default function LandingPage() {
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
+              {notice && <p className="text-sm text-emerald-600">{notice}</p>}
               <PrimaryButton type="submit" disabled={enrolling || !joinCode.trim()}>
                 {enrolling ? "Joining..." : "Join Course"}
               </PrimaryButton>

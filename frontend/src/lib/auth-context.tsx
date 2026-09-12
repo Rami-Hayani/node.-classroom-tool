@@ -36,7 +36,7 @@ interface AuthState {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signInWithGoogle: (role: "teacher" | "student") => Promise<{ error?: string }>;
-  signUp: (email: string, password: string, name: string, role: "teacher" | "student") => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, name: string, role: "teacher" | "student") => Promise<{ error?: string; confirmationRequired?: boolean; message?: string }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -171,6 +171,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) return { error: data.error || "Signup failed" };
+
+    // Supabase returns no access token when email confirmation is enabled.
+    // That is a successful signup, not an API failure; the user must confirm
+    // the email before signing in.
+    if (data.confirmation_required) {
+      return { confirmationRequired: true, message: data.message };
+    }
 
     localStorage.setItem("token", data.access_token);
     localStorage.setItem("authRole", role);
