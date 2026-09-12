@@ -17,6 +17,7 @@ from src.routes.auth import auth
 from src.routes.decks import decks
 from src.routes.presentations import presentations
 
+# API deployment trigger: keep runtime configuration sourced from GitHub secrets.
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB upload limit
 CORS(app)
