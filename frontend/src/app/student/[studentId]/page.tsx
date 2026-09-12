@@ -263,7 +263,7 @@ export default function StudentView() {
       <header className="relative z-10 h-14 flex items-center justify-between px-6 border-b border-gray-200/80 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            prereq
+            node
           </h1>
           <div className="flex items-center gap-1.5 ml-1">
             {lectureEnded ? (
@@ -333,7 +333,7 @@ export default function StudentView() {
           ) : (
             <div className="flex h-full items-center justify-center bg-white rounded-xl border border-gray-200">
               <div className="flex flex-col items-center gap-3">
-                <p className="font-[family-name:var(--font-instrument-serif)] text-2xl text-gray-300 animate-pulse">prereq</p>
+                <p className="font-[family-name:var(--font-instrument-serif)] text-2xl text-gray-300 animate-pulse">node</p>
                 <p className="text-sm text-gray-400">Loading graph...</p>
               </div>
             </div>

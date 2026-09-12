@@ -153,7 +153,7 @@ export default function UploadPage() {
         <header className="h-14 flex items-center justify-between px-6 border-b border-gray-200/80 bg-white/80 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-4">
             <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-              prereq
+              node
             </h1>
             <div className="h-5 w-px bg-gray-200" />
             <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -208,7 +208,7 @@ export default function UploadPage() {
             className="font-[family-name:var(--font-instrument-serif)] text-5xl text-gray-800 tracking-tight mb-2"
             style={{ letterSpacing: "-0.02em" }}
           >
-            prereq
+            node
           </h1>
           <p className="text-sm text-gray-500 tracking-wide font-light">
             Upload your syllabus to build a knowledge graph

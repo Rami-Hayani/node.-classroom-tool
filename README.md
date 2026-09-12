@@ -1,4 +1,4 @@
-# Prereq
+# node
 
 **Your personal knowledge graph in every lecture.**
 

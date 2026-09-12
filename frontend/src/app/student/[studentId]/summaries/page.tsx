@@ -145,7 +145,7 @@ export default function SummariesPage() {
             <ArrowLeft size={18} />
           </button>
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            prereq
+            node
           </h1>
           <span className="text-xs text-gray-400 ml-1">Lecture Summaries</span>
         </div>

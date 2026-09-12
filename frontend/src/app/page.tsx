@@ -170,7 +170,7 @@ export default function LandingPage() {
             className="font-[family-name:var(--font-instrument-serif)] text-7xl sm:text-8xl text-gray-800 tracking-tight mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
             style={{ letterSpacing: "-0.03em" }}
           >
-            prereq
+            node
           </h1>
           <p className="text-lg sm:text-2xl text-gray-500 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
             Real-time knowledge graphs for every lecture
@@ -350,7 +350,7 @@ function Header() {
         className="font-[family-name:var(--font-instrument-serif)] text-5xl text-gray-800 tracking-tight mb-2"
         style={{ letterSpacing: "-0.02em" }}
       >
-        prereq
+        node
       </h1>
       <p className="text-sm text-gray-500 tracking-wide font-light">
         Real-time knowledge graphs for every lecture
