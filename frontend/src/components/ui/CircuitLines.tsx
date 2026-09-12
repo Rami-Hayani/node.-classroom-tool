@@ -123,14 +123,17 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
             }}
           />
 
-          {/* SOURCE — filled circle, no stroke */}
-          <circle
-            cx={route.source.x}
-            cy={route.source.y}
-            r="4"
-            fill="#286da8"
-            stroke="none"
-          />
+          {/* SOURCE — filled circle, no stroke. Keep the hero center clear. */}
+          {!(route.source.x > width * 0.4 && route.source.x < width * 0.6 &&
+            route.source.y > height * 0.35 && route.source.y < height * 0.75) && (
+            <circle
+              cx={route.source.x}
+              cy={route.source.y}
+              r="4"
+              fill="#286da8"
+              stroke="none"
+            />
+          )}
 
           {/* TARGET — filled square, no stroke. Keep the hero center clear. */}
           {!(route.target.x > width * 0.4 && route.target.x < width * 0.6 &&
