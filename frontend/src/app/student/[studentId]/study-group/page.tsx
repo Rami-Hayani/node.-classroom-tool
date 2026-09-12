@@ -285,7 +285,7 @@ export default function StudyGroupPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            Node
+            node.
           </h1>
           <span className="text-xs text-gray-400 ml-1">Study Groups</span>
         </div>

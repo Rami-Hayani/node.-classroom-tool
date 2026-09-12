@@ -270,7 +270,7 @@ export default function ProfessorDashboard() {
       <header className="relative z-10 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-gray-200/80 px-5 h-14">
         <div className="flex items-center gap-4">
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            Node
+            node.
           </h1>
           <span className="text-sm text-gray-400 font-light">Live Class Understanding Map</span>
           {authCourses.length > 0 && (

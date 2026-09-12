@@ -226,7 +226,7 @@ export default function StudentView() {
           ) : (
             <div className="flex h-full items-center justify-center bg-white rounded-xl border border-gray-200">
               <div className="flex flex-col items-center gap-3">
-                <p className="font-[family-name:var(--font-instrument-serif)] text-2xl text-gray-300 animate-pulse">Node</p>
+                <p className="font-[family-name:var(--font-instrument-serif)] text-2xl text-gray-300 animate-pulse">node.</p>
                 <p className="text-sm text-gray-400">Loading graph...</p>
               </div>
             </div>

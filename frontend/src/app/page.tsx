@@ -345,7 +345,7 @@ function Header() {
         className="font-[family-name:var(--font-instrument-serif)] text-5xl text-gray-800 tracking-tight mb-2"
         style={{ letterSpacing: "-0.02em" }}
       >
-        Node
+        node.
       </h1>
       <p className="text-sm text-gray-500 tracking-wide font-light">
         Real-time knowledge graphs for every lecture

@@ -26,7 +26,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Node",
+  title: "node.",
   description: "Live classroom companion with personalized knowledge graphs",
 };
 
