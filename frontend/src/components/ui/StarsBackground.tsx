@@ -38,7 +38,7 @@ export default function StarsBackground() {
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 1440 900"
-        preserveAspectRatio="none"
+        preserveAspectRatio="xMidYMid slice"
         fill="none"
       >
         {paths.map((path, index) => {
@@ -74,7 +74,7 @@ export default function StarsBackground() {
             key={`circle-${cx}-${cy}`}
             cx={cx}
             cy={cy}
-            r="6"
+            r="7"
             fill={accent}
             className="node-circle"
           />
