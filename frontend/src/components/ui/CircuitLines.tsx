@@ -132,16 +132,19 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
             stroke="none"
           />
 
-          {/* TARGET — filled square, no stroke */}
-          <rect
-            x={route.target.x - 4}
-            y={route.target.y - 4}
-            width="8"
-            height="8"
-            rx="1"
-            fill="#286da8"
-            stroke="none"
-          />
+          {/* TARGET — filled square, no stroke. Keep the hero center clear. */}
+          {!(route.target.x > width * 0.4 && route.target.x < width * 0.6 &&
+            route.target.y > height * 0.35 && route.target.y < height * 0.75) && (
+            <rect
+              x={route.target.x - 4}
+              y={route.target.y - 4}
+              width="8"
+              height="8"
+              rx="1"
+              fill="#286da8"
+              stroke="none"
+            />
+          )}
 
           {/* BENDS — hollow diamond: white fill, accent outline, nothing else */}
           {route.bends.map((bend, bendIndex) => {
