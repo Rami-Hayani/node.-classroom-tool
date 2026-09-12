@@ -456,6 +456,11 @@ export default function ProfessorDashboard() {
           onDeckSelect={handleDeckSelect}
           onUploadFile={handlePresentationUpload}
           onPollActivated={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }}
+          onRefreshMastery={async () => {
+            if (!courseId) return;
+            const data = await flaskApi.get(`/api/courses/${courseId}/graph`) as { nodes: GraphNode[] };
+            setGraphNodes(data.nodes || []);
+          }}
           onClose={() => setPresentationOpen(false)}
         />
       )}
