@@ -113,7 +113,7 @@ export default function CircuitLines({ containerRef }: CircuitLinesProps) {
             d={route.d}
             pathLength="100"
             stroke="#286da8"
-            strokeWidth="2.5"
+            strokeWidth="1.7"
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeDasharray="12 88"

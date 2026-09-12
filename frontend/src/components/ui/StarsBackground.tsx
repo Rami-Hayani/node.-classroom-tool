@@ -19,19 +19,9 @@ const paths = [
 ];
 
 const circles = [
-  [135, 120], [205, 315], [500, 385],
-  [115, 450], [185, 625], [475, 695],
-  [80, 70], [150, 140], [440, 210], [610, 285],
-  [475, 55], [545, 125], [830, 195], [960, 280],
-  [1000, 80], [930, 150], [750, 220], [650, 300],
-  [1370, 95], [1300, 165], [1090, 235], [990, 320],
-  [1325, 250], [1255, 320], [1080, 445],
-  [1310, 545], [1240, 615], [1070, 700],
-  [120, 760], [190, 690], [350, 585],
-  [235, 900], [305, 830], [500, 755],
-  [140, 845], [210, 775], [435, 705], [565, 640],
-  [600, 850], [670, 780], [890, 710], [1000, 640],
-  [1010, 845], [1080, 775], [1290, 705], [1430, 640],
+  [135, 120], [500, 385], [115, 450], [475, 695],
+  [80, 70], [610, 285], [1000, 80], [650, 300],
+  [1255, 250], [1070, 700], [120, 760], [500, 755], [1000, 640],
 ];
 
 const terminals = [
@@ -67,7 +57,7 @@ export default function StarsBackground() {
               d={path}
               pathLength="100"
               stroke={accent}
-              strokeWidth="3"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
               vectorEffect="non-scaling-stroke"
@@ -90,12 +80,12 @@ export default function StarsBackground() {
       </svg>
       <style jsx>{`
         .node-circuit-highlight {
-          stroke-dasharray: 12 88;
-          opacity: 0.1;
+          stroke-dasharray: 16 84;
+          opacity: 0.06;
           animation: circuit-flow 6s linear infinite, circuit-fade 2.8s ease-in-out infinite;
         }
         .node-circle {
-          opacity: 0.78;
+          opacity: 0.82;
           animation: marker-fade 3.8s ease-in-out infinite;
         }
         @keyframes circuit-flow {
@@ -103,12 +93,12 @@ export default function StarsBackground() {
           to { stroke-dashoffset: 0; }
         }
         @keyframes circuit-fade {
-          0%, 100% { opacity: 0.12; }
-          45%, 60% { opacity: 0.88; }
+          0%, 100% { opacity: 0.03; }
+          42%, 58% { opacity: 0.48; }
         }
         @keyframes marker-fade {
-          0%, 100% { opacity: 0.38; }
-          50% { opacity: 0.92; }
+          0%, 100% { opacity: 0.55; }
+          50% { opacity: 0.95; }
         }
       `}</style>
     </div>
