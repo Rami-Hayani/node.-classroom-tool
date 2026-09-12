@@ -168,8 +168,12 @@ export default function LandingPage() {
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
             className="font-[family-name:var(--font-geist-sans)] font-medium text-7xl sm:text-8xl text-gray-800 tracking-[-0.055em] mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
+            aria-label="node."
           >
-            node.
+            node<span
+              aria-hidden="true"
+              className="ml-[0.03em] inline-block h-[0.13em] w-[0.13em] translate-y-[0.02em] rounded-full bg-current"
+            />
           </h1>
           <p className="text-lg sm:text-2xl text-gray-500 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
             See where understanding breaks down. Know what to teach next.
