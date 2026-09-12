@@ -10,7 +10,7 @@ import ClassInsightCard from "@/components/dashboard/ClassInsightCard";
 import PollControls from "@/components/dashboard/PollControls";
 import InterventionPanel from "@/components/dashboard/InterventionPanel";
 import LectureDeckViewer from "@/components/dashboard/LectureDeckViewer";
-import PresentationMode, { type PresentationSlide } from "@/components/dashboard/PresentationMode";
+import PresentationMode from "@/components/dashboard/PresentationMode";
 import { useSocket, useSocketEvent, useSocketReady } from "@/lib/socket";
 import { flaskApi, nextApi, type LectureDeck, type LectureSlide } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -49,7 +49,6 @@ export default function ProfessorDashboard() {
   const [responseRefresh, setResponseRefresh] = useState(0);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
   const [presentationOpen, setPresentationOpen] = useState(false);
-  const [presentationSlides, setPresentationSlides] = useState<PresentationSlide[]>([]);
 
   const socket = useSocket();
   const socketReady = useSocketReady();
@@ -137,9 +136,7 @@ export default function ProfessorDashboard() {
       .finally(() => setDeckLoading(false));
   }, [courseId]);
 
-  async function handleDeckUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
+  async function uploadDeckFile(file: File) {
     if (!file || !courseId) return;
     if (!/\.(pptx|pdf)$/i.test(file.name)) { setDeckError("Please choose a .pptx or .pdf lecture slide file."); return; }
     setDeckLoading(true);
@@ -154,6 +151,16 @@ export default function ProfessorDashboard() {
     } catch (error) {
       setDeckError(error instanceof Error ? error.message : "Could not upload PowerPoint.");
     } finally { setDeckLoading(false); }
+  }
+
+  function handleDeckUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void uploadDeckFile(file);
+  }
+
+  function handlePresentationUpload(file: File) {
+    void uploadDeckFile(file);
   }
 
   async function handleDeckSelect(selectedDeck: LectureDeck) {
@@ -397,7 +404,7 @@ export default function ProfessorDashboard() {
             onClick={() => setPresentationOpen(true)}
             className="border-gray-200 text-gray-600 hover:bg-gray-50"
           >
-            {presentationSlides.length ? "Resume Presentation" : "Start Presentation"}
+            {slides.length ? "Resume Presentation" : "Start Presentation"}
           </Button>
           <Button
             size="sm"
@@ -427,7 +434,7 @@ export default function ProfessorDashboard() {
       </header>
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
-        {!lectureId && <section className="rounded-2xl border border-dashed border-gray-300 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Today&apos;s lecture</p><p className="mt-1 text-sm text-gray-600">Upload today&apos;s lecture slides.</p>{deck && <p className="mt-2 text-xs text-gray-500">Selected: <span className="font-medium text-gray-700">{deck.filename}</span> · {slides.length} slides</p>}{deckError && <p className="mt-2 text-xs text-amber-600">{deckError}</p>}</div><label className={`cursor-pointer rounded-xl bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 ${deckLoading ? "pointer-events-none opacity-50" : ""}`}>{deckLoading ? "Reading slides…" : "Upload Slides"}<input type="file" accept=".pptx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" onChange={handleDeckUpload} /></label></div>{availableDecks.length > 0 && <div className="mt-4 border-t border-gray-100 pt-3"><p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Past lecture slides</p><div className="mt-2 flex flex-wrap gap-2">{availableDecks.map((item) => <button key={item.id} type="button" onClick={() => handleDeckSelect(item)} className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${deck?.id === item.id ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-gray-50 text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/50"}`}><span className="block max-w-[240px] truncate font-medium">{item.filename}</span><span className="mt-0.5 block text-[10px] text-gray-400">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Uploaded lecture"}</span></button>)}</div></div>}</section>}
+        {!lectureId && <section className="rounded-2xl border border-dashed border-gray-300 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Today&apos;s lecture</p><p className="mt-1 text-sm text-gray-600">Upload today&apos;s lecture slides.</p>{deck && <p className="mt-2 text-xs text-gray-500">Selected deck: <span className="font-semibold text-indigo-700">{deck.filename}</span> · {slides.length} slides</p>}{deckError && <p className="mt-2 text-xs text-amber-600">{deckError}</p>}</div><label className={`cursor-pointer rounded-xl bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 ${deckLoading ? "pointer-events-none opacity-50" : ""}`}>{deckLoading ? "Reading slides…" : "Upload Slides"}<input type="file" accept=".pptx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" onChange={handleDeckUpload} /></label></div>{availableDecks.length > 0 && <div className="mt-4 border-t border-gray-100 pt-3"><p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Past lecture slides · choose one to preview</p><div className="mt-2 flex flex-wrap gap-2">{availableDecks.map((item) => { const selected = deck?.id === item.id; return <button key={item.id} type="button" onClick={() => handleDeckSelect(item)} className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${selected ? "border-indigo-400 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100" : "border-gray-200 bg-gray-50 text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/50"}`}><span className="flex items-center gap-2"><span className="block max-w-[240px] truncate font-medium">{item.filename}</span>{selected && <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">Selected</span>}</span><span className="mt-0.5 block text-[10px] text-gray-400">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Uploaded lecture"}</span></button>; })}</div></div>}</section>}
         {lectureId && deck && slides.length > 0 && <LectureDeckViewer deck={deck} slides={slides} currentSlideIndex={currentSlideIndex} onSlideChange={setCurrentSlideIndex} concepts={classNodes} />}
         <div className="flex min-h-[440px] min-w-0 flex-1 gap-3">
         <section className="flex min-h-0 min-w-0 flex-[4] flex-col rounded-2xl border border-gray-200/80 bg-white p-3">
@@ -441,13 +448,15 @@ export default function ProfessorDashboard() {
 
       {presentationOpen && (
         <PresentationMode
-          lectureID={lectureId}
-          slides={presentationSlides}
-          concepts={classNodes.map((node) => ({ id: node.id, label: node.label, description: node.description }))}
-          nodemapData={classNodes}
+          lectureId={lectureId}
+          deck={deck}
+          slides={slides}
+          availableDecks={availableDecks}
+          concepts={classNodes}
           currentSlideIndex={currentSlideIndex}
           onSlideChange={setCurrentSlideIndex}
-          onSlidesLoaded={setPresentationSlides}
+          onDeckSelect={handleDeckSelect}
+          onUploadFile={handlePresentationUpload}
           onClose={() => setPresentationOpen(false)}
         />
       )}

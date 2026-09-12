@@ -1,7 +1,8 @@
 from flask import request, jsonify, Blueprint
 from werkzeug.utils import secure_filename
 from pptx import Presentation
-from PyPDF2 import PdfReader
+from PyPDF2 import PdfReader, PdfWriter
+from io import BytesIO
 import json
 import os
 import tempfile
@@ -179,6 +180,20 @@ def get_deck_file(deck_id):
     try:
         content = supabase.storage.from_("lecture-decks").download(rows[0]["storage_path"])
         mimetype = "application/pdf" if rows[0].get("file_type") == "pdf" else "application/octet-stream"
+        page_value = request.args.get("page")
+        if mimetype == "application/pdf" and page_value:
+            try:
+                page_number = int(page_value)
+                reader = PdfReader(BytesIO(content))
+                if page_number < 1 or page_number > len(reader.pages):
+                    return jsonify({"error": "Requested slide is out of range."}), 400
+                writer = PdfWriter()
+                writer.add_page(reader.pages[page_number - 1])
+                single_page = BytesIO()
+                writer.write(single_page)
+                content = single_page.getvalue()
+            except (TypeError, ValueError, IndexError) as error:
+                return jsonify({"error": f"Could not render requested slide: {error}"}), 400
         return Response(content, mimetype=mimetype, headers={"Content-Disposition": "inline"})
     except Exception as error:
         return jsonify({"error": f"Could not load lecture file: {str(error)}"}), 404
