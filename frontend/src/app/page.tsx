@@ -175,7 +175,7 @@ export default function LandingPage() {
             data-circuit-side="bottom"
             className="font-sans font-normal text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#286da8] tracking-[-0.09em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
-            node.
+            node<span className="ml-[0.04em] inline-block h-[0.12em] w-[0.12em] translate-y-[0.02em] rounded-full bg-[#286da8]" aria-hidden="true" />
           </h1>
           <p
             data-circuit-anchor="tagline"
