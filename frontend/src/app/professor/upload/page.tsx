@@ -7,6 +7,7 @@ import { Upload, FileText, ArrowRight, Loader2 } from "lucide-react";
 import type { GraphNode, GraphEdge } from "@/components/graph/KnowledgeGraph";
 import StarsBackground from "@/components/ui/StarsBackground";
 import { flaskApi } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
 const FLASK_API_URL = process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5000";
 
@@ -18,6 +19,7 @@ type Stage = "idle" | "uploading" | "preview";
 
 export default function UploadPage() {
   const router = useRouter();
+  const { signOut } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [stage, setStage] = useState<Stage>("idle");
@@ -166,8 +168,18 @@ export default function UploadPage() {
               <span>{edges.length} relationships</span>
             </div>
           </div>
-          <button
-            onClick={() => {
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                await signOut();
+                router.push("/");
+              }}
+              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Sign out
+            </button>
+            <button
+              onClick={() => {
               // Clean up demo flags and restore real course ID
               if (typeof window !== "undefined" && localStorage.getItem("demoUpload") === "true") {
                 const realCourseId = localStorage.getItem("realCourseId");
@@ -185,7 +197,8 @@ export default function UploadPage() {
           >
             Continue to Dashboard
             <ArrowRight size={15} />
-          </button>
+            </button>
+          </div>
         </header>
 
         {/* Graph fills remaining space */}
@@ -202,6 +215,15 @@ export default function UploadPage() {
       <StarsBackground />
 
       <div className="relative z-10 w-full max-w-lg px-6">
+        <button
+          onClick={async () => {
+            await signOut();
+            router.push("/");
+          }}
+          className="absolute right-6 top-0 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          Sign out
+        </button>
         {/* Header */}
         <div className="text-center mb-10">
           <h1

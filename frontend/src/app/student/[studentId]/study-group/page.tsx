@@ -75,7 +75,7 @@ export default function StudyGroupPage() {
   const params = useParams();
   const router = useRouter();
   const socket = useSocket();
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const studentId = params.studentId as string;
 
   const [courseId, setCourseId] = useState<string | null>(null);
@@ -283,6 +283,15 @@ export default function StudyGroupPage() {
           </h1>
           <span className="text-xs text-gray-400 ml-1">Study Groups</span>
         </div>
+        <button
+          onClick={async () => {
+            await signOut();
+            router.push("/");
+          }}
+          className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          Sign out
+        </button>
       </header>
 
       {/* Error banner */}

@@ -8,6 +8,7 @@ import ChatInterface, { type ChatMessage } from "@/components/tutor/ChatInterfac
 import { useSocketEvent } from "@/lib/socket";
 import { nextApi } from "@/lib/api";
 import { confidenceToColor } from "@/lib/colors";
+import { useAuth } from "@/lib/auth-context";
 
 /** Aaron logo — cute "A" in Instrument Serif, aligned with landing page style */
 function AaronLogo({ className = "w-9 h-9 text-xl" }: { className?: string }) {
@@ -39,6 +40,7 @@ export default function TutoringView() {
   const params = useParams();
   const router = useRouter();
   const studentId = params.studentId as string;
+  const { signOut } = useAuth();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [weakConcepts, setWeakConcepts] = useState<WeakConcept[]>(MOCK_WEAK_CONCEPTS);
@@ -136,6 +138,15 @@ export default function TutoringView() {
           <h1 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight leading-tight">Aaron - AI Tutor</h1>
           <p className="text-xs text-gray-500 font-medium">Personalized learning session</p>
         </div>
+        <button
+          onClick={async () => {
+            await signOut();
+            router.push("/");
+          }}
+          className="ml-auto text-sm text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          Sign out
+        </button>
       </header>
 
       {/* Notification toast */}
