@@ -28,10 +28,14 @@ const endpoints = [
   [1010, 900], [1430, 640],
 ];
 
-export default function StarsBackground() {
+export default function StarsBackground({ dark = false }: { dark?: boolean }) {
+  const lineColor = dark ? "#c5c9d1" : accent;
+
   return (
-    <div className="fixed inset-0 z-0 overflow-hidden bg-[#fbfdff] pointer-events-none" aria-hidden="true">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(199,229,255,0.4),transparent_32%),radial-gradient(circle_at_18%_78%,rgba(222,211,255,0.24),transparent_27%),radial-gradient(circle_at_85%_18%,rgba(207,246,237,0.3),transparent_24%)]" />
+    <div className={`fixed inset-0 z-0 overflow-hidden pointer-events-none ${dark ? "bg-[#050505]" : "bg-[#fbfdff]"}`} aria-hidden="true">
+      <div className={`absolute inset-0 ${dark
+        ? "bg-[radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_18%_78%,rgba(255,255,255,0.035),transparent_27%),radial-gradient(circle_at_85%_18%,rgba(255,255,255,0.03),transparent_24%)]"
+        : "bg-[radial-gradient(circle_at_50%_38%,rgba(199,229,255,0.4),transparent_32%),radial-gradient(circle_at_18%_78%,rgba(222,211,255,0.24),transparent_27%),radial-gradient(circle_at_85%_18%,rgba(207,246,237,0.3),transparent_24%)]"}`} />
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 1440 900"
@@ -51,7 +55,7 @@ export default function StarsBackground() {
             <path
               id={pathId}
               d={path}
-              stroke={accent}
+              stroke={lineColor}
               strokeWidth="2.2"
               opacity="0.34"
               strokeLinecap="round"
@@ -61,7 +65,7 @@ export default function StarsBackground() {
             <path
               d={path}
               pathLength="100"
-              stroke={accent}
+              stroke={lineColor}
               strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -74,8 +78,8 @@ export default function StarsBackground() {
         })}
         {endpoints.map(([cx, cy], index) => (
           <g key={`endpoint-${cx}-${cy}-${index}`}>
-            <circle cx={cx} cy={cy} r="8.5" fill="white" className="node-circle-halo" />
-            <circle cx={cx} cy={cy} r="6.5" fill={accent} className="node-circle" />
+            <circle cx={cx} cy={cy} r="8.5" fill={dark ? "#090b10" : "white"} className="node-circle-halo" />
+            <circle cx={cx} cy={cy} r="6.5" fill={lineColor} className="node-circle" />
           </g>
         ))}
       </svg>

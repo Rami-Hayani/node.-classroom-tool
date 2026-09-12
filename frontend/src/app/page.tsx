@@ -35,8 +35,11 @@ export default function LandingPage() {
   if (loading) {
     return (
       <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <StarsBackground />
-        <div className="relative z-10 text-gray-400 text-sm font-light tracking-wide">Loading...</div>
+        <StarsBackground dark />
+        <div className="relative z-10 flex flex-col items-center gap-4 text-white/60 text-sm font-light tracking-wide">
+          <NodeMark className="h-8 w-8" />
+          Loading...
+        </div>
       </div>
     );
   }
@@ -163,12 +166,12 @@ export default function LandingPage() {
   // --- Unauthenticated: Splash ---
   if (!showAuth) {
     return (
-      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <StarsBackground />
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#050505] text-white">
+        <StarsBackground dark />
         <div className="relative z-10 flex flex-col items-center px-6">
-          <div className="pointer-events-none absolute -inset-x-32 top-16 -z-10 h-80 rounded-full bg-[radial-gradient(ellipse,rgba(186,224,255,0.34),transparent_68%)] blur-2xl" />
+          <div className="pointer-events-none absolute -inset-x-32 top-8 -z-10 h-96 rounded-full bg-[radial-gradient(ellipse,rgba(255,255,255,0.08),transparent_68%)] blur-3xl" />
           <h1
-            className="font-[family-name:var(--font-geist-sans)] font-medium text-7xl sm:text-8xl text-gray-800 tracking-[-0.055em] mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
+            className="font-[family-name:var(--font-geist-sans)] font-medium text-7xl sm:text-8xl text-white tracking-[-0.055em] mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
             aria-label="node."
           >
             node<span
@@ -176,13 +179,14 @@ export default function LandingPage() {
               className="ml-[0.03em] inline-block h-[0.13em] w-[0.13em] translate-y-[0.02em] rounded-full bg-current"
             />
           </h1>
-          <p className="text-lg sm:text-2xl text-gray-500 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
+          <p className="text-lg sm:text-2xl text-white/55 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
             See where understanding breaks down. Know what to teach next.
           </p>
           <button
             onClick={() => setShowAuth(true)}
-            className="px-12 py-4 rounded-full border border-gray-300 text-gray-600 font-medium text-base hover:bg-gray-800 hover:text-white hover:border-gray-800 active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
+            className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full border border-white/25 bg-white/[0.04] text-white/85 font-medium text-base shadow-[0_0_36px_rgba(112,166,216,0.08)] hover:border-white/50 hover:bg-white/[0.1] active:scale-[0.97] transition-all duration-500 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
           >
+            <NodeMark className="h-5 w-5 opacity-75 transition-transform duration-500 group-hover:rotate-[-8deg] group-hover:scale-110" />
             Get Started
           </button>
           {/* Dev shortcut for local testing */}
@@ -212,28 +216,43 @@ export default function LandingPage() {
 
   // --- Unauthenticated: Login / Signup ---
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      <StarsBackground />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#050505] text-gray-900">
+      <StarsBackground dark />
       <div className="relative z-10 w-full max-w-md px-6 animate-[fadeInUp_0.4s_ease-out]">
-        <Header />
+        <Header dark />
 
-        <GlassCard>
+        <GlassCard solid>
           {/* Login / Signup toggle */}
-          <div className="flex gap-1 mb-6 bg-gray-100/80 p-1 rounded-full">
-            <TabButton active={mode === "login"} onClick={() => { setMode("login"); setError(""); }}>
+          <div className="flex gap-1 mb-3 bg-gray-100 p-1 rounded-full">
+            <TabButton active={mode === "login"} onClick={() => { setMode("login"); setError(""); }} activeClassName="bg-black text-white shadow-md">
               Sign In
             </TabButton>
-            <TabButton active={mode === "signup"} onClick={() => { setMode("signup"); setError(""); }}>
+            <TabButton active={mode === "signup"} onClick={() => { setMode("signup"); setError(""); }} activeClassName="bg-black text-white shadow-md">
               Sign Up
             </TabButton>
           </div>
 
+          <div className="mb-5 px-1">
+            <p className="text-lg font-semibold tracking-tight text-gray-900">
+              {mode === "login" ? "Welcome back" : "Create your Node account"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-500">
+              {mode === "login"
+                ? `Sign in to continue as a ${roleToggle === "teacher" ? "professor" : "student"}.`
+                : `Set up your ${roleToggle === "teacher" ? "professor" : "student"} profile to get started.`}
+            </p>
+          </div>
+
           {/* Role toggle */}
-          <div className="flex gap-1 mb-5 bg-gray-100/80 p-1 rounded-full">
-            <TabButton active={roleToggle === "student"} onClick={() => setRoleToggle("student")}>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">Account type</span>
+            <span className="text-[10px] font-medium text-gray-400">{roleToggle === "teacher" ? "Professor workspace" : "Student workspace"}</span>
+          </div>
+          <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-full">
+            <TabButton active={roleToggle === "student"} onClick={() => setRoleToggle("student")} activeClassName="bg-white text-gray-900 shadow-sm ring-1 ring-gray-200">
               Student
             </TabButton>
-            <TabButton active={roleToggle === "teacher"} onClick={() => setRoleToggle("teacher")}>
+            <TabButton active={roleToggle === "teacher"} onClick={() => setRoleToggle("teacher")} activeClassName="bg-white text-gray-900 shadow-sm ring-1 ring-gray-200">
               Professor
             </TabButton>
           </div>
@@ -278,7 +297,7 @@ export default function LandingPage() {
 
             {error && <p className="text-sm text-red-500">{error}</p>}
 
-            <PrimaryButton type="submit" disabled={submitting}>
+            <PrimaryButton type="submit" disabled={submitting} dark>
               {submitting
                 ? "Please wait..."
                 : mode === "login"
@@ -300,7 +319,7 @@ export default function LandingPage() {
               const result = await signInWithGoogle(roleToggle);
               if (result.error) setError(result.error);
             }}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
           >
             <span className="text-base font-semibold">G</span>
             Continue with Google
@@ -319,7 +338,7 @@ export default function LandingPage() {
 
         <button
           onClick={() => setShowAuth(false)}
-          className="flex items-center justify-center gap-1 mx-auto mt-6 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex items-center justify-center gap-1 mx-auto mt-6 text-sm text-white/55 hover:text-white transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 18-6-6 6-6" />
@@ -337,40 +356,44 @@ export default function LandingPage() {
   );
 }
 
+function NodeMark({ className = "h-6 w-6" }: { className?: string }) {
+  return <img src="/favicon.ico" alt="" aria-hidden="true" className={`${className} rounded-lg object-cover`} />;
+}
+
 // --- Shared UI components ---
 
-function Header() {
+function Header({ dark = false }: { dark?: boolean }) {
   return (
     <div className="text-center mb-10">
       <h1
-        className="font-[family-name:var(--font-geist-sans)] font-medium text-5xl text-gray-800 tracking-tight mb-2"
+        className={`font-[family-name:var(--font-geist-sans)] font-medium text-5xl tracking-tight mb-2 ${dark ? "text-white" : "text-gray-800"}`}
         style={{ letterSpacing: "-0.02em" }}
       >
         node.
       </h1>
-      <p className="text-sm text-gray-500 tracking-wide font-light">
+      <p className={`text-sm tracking-wide font-light ${dark ? "text-white/55" : "text-gray-500"}`}>
         Real-time knowledge graphs for every lecture
       </p>
     </div>
   );
 }
 
-function GlassCard({ children }: { children: React.ReactNode }) {
+function GlassCard({ children, solid = false }: { children: React.ReactNode; solid?: boolean }) {
   return (
-    <div className="rounded-2xl bg-white/70 border border-gray-200/80 backdrop-blur-2xl p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)]">
+    <div className={`rounded-2xl border border-gray-200/80 p-8 shadow-[0_8px_40px_-12px_rgba(0,0,0,0.28)] ${solid ? "bg-white" : "bg-white/70 backdrop-blur-2xl"}`}>
       {children}
     </div>
   );
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabButton({ active, onClick, children, activeClassName }: { active: boolean; onClick: () => void; children: React.ReactNode; activeClassName?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`flex-1 py-2 px-4 rounded-full text-sm font-medium transition-all ${
         active
-          ? "bg-white text-gray-700 shadow-sm"
+          ? (activeClassName || "bg-white text-gray-700 shadow-sm")
           : "text-gray-400 hover:text-gray-500"
       }`}
     >
@@ -379,11 +402,11 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function PrimaryButton({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+function PrimaryButton({ children, dark = false, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { dark?: boolean }) {
   return (
     <button
       {...props}
-      className="w-full py-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-medium text-sm active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-800 disabled:active:scale-100"
+      className={`w-full py-3 rounded-xl ${dark ? "bg-black hover:bg-gray-900" : "bg-gray-800 hover:bg-gray-700"} text-white font-medium text-sm active:scale-[0.98] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-800 disabled:active:scale-100`}
     >
       {children}
     </button>
