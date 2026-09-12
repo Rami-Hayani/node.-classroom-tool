@@ -10,6 +10,7 @@ import ClassInsightCard from "@/components/dashboard/ClassInsightCard";
 import PollControls from "@/components/dashboard/PollControls";
 import InterventionPanel from "@/components/dashboard/InterventionPanel";
 import LectureDeckViewer from "@/components/dashboard/LectureDeckViewer";
+import PresentationMode, { type PresentationSlide } from "@/components/dashboard/PresentationMode";
 import { useSocket, useSocketEvent, useSocketReady } from "@/lib/socket";
 import { flaskApi, nextApi, type LectureDeck, type LectureSlide } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -47,6 +48,8 @@ export default function ProfessorDashboard() {
   const [manualConceptSelection, setManualConceptSelection] = useState(false);
   const [responseRefresh, setResponseRefresh] = useState(0);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
+  const [presentationOpen, setPresentationOpen] = useState(false);
+  const [presentationSlides, setPresentationSlides] = useState<PresentationSlide[]>([]);
 
   const socket = useSocket();
   const socketReady = useSocketReady();
@@ -390,6 +393,14 @@ export default function ProfessorDashboard() {
           )}
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => setPresentationOpen(true)}
+            className="border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            {presentationSlides.length ? "Resume Presentation" : "Start Presentation"}
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
             onClick={handleEndClass}
             disabled={!lectureId || classEnding}
@@ -427,6 +438,19 @@ export default function ProfessorDashboard() {
         <aside className="min-h-0 min-w-0 flex-[3] overflow-y-auto"><PollControls lectureId={lectureId} concepts={classNodes.map((c) => ({ id: c.id, label: formatConceptLabel(c.label) }))} activeConceptId={activeConceptId} selectedNodeId={selectedConceptId} connectedStudentCount={connectedStudentCount} followUpRequest={followUpRequest} onConceptSelected={() => setManualConceptSelection(true)} onPollActivated={(poll) => { setManualConceptSelection(true); setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }} onPollClosed={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); setMisconception(poll.misconceptionSummary); setInterventionTrigger((value) => value + 1); nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null)); }} /></aside>
         </div>
       </div>
+
+      {presentationOpen && (
+        <PresentationMode
+          lectureID={lectureId}
+          slides={presentationSlides}
+          concepts={classNodes.map((node) => ({ id: node.id, label: node.label, description: node.description }))}
+          nodemapData={classNodes}
+          currentSlideIndex={currentSlideIndex}
+          onSlideChange={setCurrentSlideIndex}
+          onSlidesLoaded={setPresentationSlides}
+          onClose={() => setPresentationOpen(false)}
+        />
+      )}
 
     </div>
   );

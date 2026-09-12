@@ -10,15 +10,17 @@ import { openAIText } from "@/lib/openai";
 export function buildQuestionGenerationPrompt(
   conceptLabel: string,
   conceptDescription: string,
-  recentTranscript: string
+  slideTitle: string,
+  slideText: string
 ): string {
   return `You are generating a poll question for a live university lecture.
 
 CONCEPT: ${conceptLabel}
 DESCRIPTION: ${conceptDescription}
 
-RECENT LECTURE TRANSCRIPT:
-"${recentTranscript}"
+CURRENT LECTURE SLIDE:
+Title: "${slideTitle}"
+Content: "${slideText}"
 
 TASK:
 Generate a natural language question that tests whether a student truly understands this concept. The question should:
@@ -66,12 +68,14 @@ export function parseQuestionGenerationResponse(
 export async function generateQuestion(
   conceptLabel: string,
   conceptDescription: string,
-  recentTranscript: string
+  slideTitle: string,
+  slideText: string
 ): Promise<{ question: string; expectedAnswer: string }> {
   const prompt = buildQuestionGenerationPrompt(
     conceptLabel,
     conceptDescription,
-    recentTranscript
+    slideTitle,
+    slideText
   );
 
   return parseQuestionGenerationResponse(await openAIText(prompt, { maxTokens: 512 }));

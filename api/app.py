@@ -15,6 +15,7 @@ from src.routes.tutoring import tutoring
 from src.routes.study_groups import study_groups
 from src.routes.auth import auth
 from src.routes.decks import decks
+from src.routes.presentations import presentations
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB upload limit
@@ -22,6 +23,7 @@ CORS(app)
 
 app.register_blueprint(auth)
 app.register_blueprint(decks)
+app.register_blueprint(presentations)
 app.register_blueprint(create)
 app.register_blueprint(courses)
 app.register_blueprint(students)

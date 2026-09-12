@@ -38,14 +38,15 @@ async function flaskPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 // Question generation
-function buildPrompt(conceptLabel: string, conceptDescription: string, recentTranscript: string): string {
+export function buildPrompt(conceptLabel: string, conceptDescription: string, slideTitle: string, slideText: string): string {
   return `You are generating a poll question for a live university lecture.
 
 CONCEPT: ${conceptLabel}
 DESCRIPTION: ${conceptDescription}
 
-RECENT LECTURE TRANSCRIPT:
-"${recentTranscript}"
+CURRENT LECTURE SLIDE:
+Title: "${slideTitle}"
+Content: "${slideText}"
 
 TASK:
 Generate a SHORT, CLEAN question that tests real understanding of this concept.
@@ -83,7 +84,7 @@ function parseResponse(response: string): { question: string; expectedAnswer: st
 router.post("/api/lectures/:id/poll/generate", json(), async (req, res) => {
   try {
     const lectureId = req.params.id;
-    const { conceptId } = req.body as { conceptId?: string };
+    const { conceptId, slideText = "", slideTitle = "" } = req.body as { conceptId?: string; slideText?: string; slideTitle?: string };
 
     console.log(`[poll-generate] Generating for lecture ${lectureId}, concept ${conceptId || 'auto'}`);
 
@@ -99,16 +100,10 @@ router.post("/api/lectures/:id/poll/generate", json(), async (req, res) => {
     // Determine concept
     let targetConceptId = conceptId;
     if (!targetConceptId) {
-      try {
-        const recent = await flaskGet<{ concept_id: string }>(`/api/lectures/${lectureId}/recent-concept`);
-        targetConceptId = recent.concept_id;
-      } catch {
-        // No recent concept, pick random
-        if (graph.nodes.length === 0) {
-          return res.status(400).json({ error: "No concepts available in this course" });
-        }
-        targetConceptId = graph.nodes[Math.floor(Math.random() * graph.nodes.length)].id;
-      }
+      const slideWords = `${slideTitle} ${slideText}`.toLowerCase();
+      const matched = graph.nodes.find((node) => slideWords.includes(node.label.toLowerCase()));
+      targetConceptId = matched?.id || graph.nodes[0]?.id;
+      if (!targetConceptId) return res.status(400).json({ error: "No concepts available in this course" });
     }
 
     const concept = graph.nodes.find((n) => n.id === targetConceptId);
@@ -118,18 +113,7 @@ router.post("/api/lectures/:id/poll/generate", json(), async (req, res) => {
 
     console.log(`[poll-generate] Target concept: ${concept.label}`);
 
-    // Get recent transcript
-    let recentTranscript = "";
-    try {
-      const chunks = await flaskGet<{ text: string; timestamp_sec: number }[]>(
-        `/api/lectures/${lectureId}/transcript-chunks?limit=5`
-      );
-      recentTranscript = (chunks || []).reverse().map((c) => c.text).join(" ");
-    } catch (err) {
-      console.warn("[poll-generate] No transcript chunks:", err);
-    }
-
-    const prompt = buildPrompt(concept.label, concept.description || "", recentTranscript);
+    const prompt = buildPrompt(concept.label, concept.description || "", slideTitle, slideText);
     const { question, expectedAnswer } = parseResponse(await openAIText(prompt, { maxTokens: 512 }));
     console.log(`[poll-generate] Generated question: ${question.slice(0, 50)}...`);
 
