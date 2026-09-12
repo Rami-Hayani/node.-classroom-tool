@@ -169,10 +169,10 @@ export default function LandingPage() {
           <h1
             className="font-[family-name:var(--font-geist-sans)] font-medium text-7xl sm:text-8xl text-gray-800 tracking-[-0.055em] mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
-            Node
+            node.
           </h1>
           <p className="text-lg sm:text-2xl text-gray-500 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
-            Real-time knowledge graphs for every lecture
+            See where understanding breaks down. Know what to teach next.
           </p>
           <button
             onClick={() => setShowAuth(true)}
