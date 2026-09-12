@@ -26,6 +26,10 @@ const diamonds = [
   [1320, 735], [1210, 885],
 ];
 
+const circles = [
+  [220, 340], [1308, 130], [1260, 488], [250, 760], [965, 800],
+];
+
 const terminals = [
   [315, 245], [390, 420], [470, 190], [760, 180], [760, 205],
   [1060, 235], [1125, 380], [1110, 555], [320, 500], [410, 690],
@@ -84,6 +88,16 @@ export default function StarsBackground() {
             className="node-marker"
           />
         ))}
+        {circles.map(([cx, cy]) => (
+          <circle
+            key={`circle-${cx}-${cy}`}
+            cx={cx}
+            cy={cy}
+            r="6"
+            fill={accent}
+            className="node-circle"
+          />
+        ))}
         {terminals.map(([cx, cy]) => (
           <rect
             key={`terminal-${cx}-${cy}`}
@@ -109,6 +123,10 @@ export default function StarsBackground() {
         }
         .node-terminal {
           opacity: 0.72;
+        }
+        .node-circle {
+          opacity: 0.82;
+          animation: marker-fade 3.8s ease-in-out infinite;
         }
         @keyframes circuit-flow {
           from { stroke-dashoffset: 100; }
