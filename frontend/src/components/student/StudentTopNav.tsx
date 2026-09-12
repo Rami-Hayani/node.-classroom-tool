@@ -17,7 +17,7 @@ export default function StudentTopNav({ studentId, email }: StudentTopNavProps) 
 
   return (
     <header className="relative z-20 flex h-[68px] shrink-0 items-center justify-between overflow-visible bg-black px-7 text-white shadow-sm">
-      <button onClick={() => router.push(`/student/${studentId}`)} className="font-[family-name:var(--font-instrument-serif)] text-2xl tracking-tight">node.</button>
+      <button onClick={() => router.push(`/student/${studentId}`)} className="font-[family-name:var(--font-geist-sans)] font-medium text-2xl tracking-tight">node.</button>
       <nav className="flex h-full items-center gap-1">
         {tabs.map(({ label, icon: Icon, href }) => {
           const active = pathname === href || (label !== "node. Map" && pathname.startsWith(`${href}/`));

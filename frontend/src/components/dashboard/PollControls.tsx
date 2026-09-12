@@ -23,11 +23,12 @@ interface PollControlsProps {
   selectedNodeId?: string | null;
   connectedStudentCount?: number;
   followUpRequest?: { conceptId: string; nonce: number } | null;
+  onConceptSelected?: (conceptId: string) => void;
   onPollActivated?: (poll: { pollId: string; conceptId: string; conceptLabel: string }) => void;
   onPollClosed?: (poll: { pollId: string; conceptId: string; conceptLabel: string; misconceptionSummary?: string }) => void;
 }
 
-export default function PollControls({ lectureId, concepts, activeConceptId, selectedNodeId, connectedStudentCount = 0, followUpRequest, onPollActivated, onPollClosed }: PollControlsProps) {
+export default function PollControls({ lectureId, concepts, activeConceptId, selectedNodeId, connectedStudentCount = 0, followUpRequest, onConceptSelected, onPollActivated, onPollClosed }: PollControlsProps) {
   const [poll, setPoll] = useState<PollState>({
     pollId: null,
     question: null,
@@ -186,7 +187,7 @@ export default function PollControls({ lectureId, concepts, activeConceptId, sel
               Concept
               <select
                 value={selectedConceptId}
-                onChange={(event) => setSelectedConceptId(event.target.value)}
+                onChange={(event) => { setSelectedConceptId(event.target.value); onConceptSelected?.(event.target.value); }}
                 disabled={!lectureId || concepts.length === 0 || generating}
                 className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
               >

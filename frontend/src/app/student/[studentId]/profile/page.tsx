@@ -20,7 +20,7 @@ export default function StudentProfilePage() {
           <div><p className="text-xs text-gray-400">Email</p><p className="mt-1 font-medium">{user?.email || "—"}</p></div>
         </div>
         <div className="mt-8 flex gap-3">
-          <button onClick={() => router.push(`/student/${studentId}`)} className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white">Back to node. Map</button>
+          <button onClick={() => router.push(`/student/${studentId}`)} className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white">Back to <span className="font-[family-name:var(--font-geist-sans)] font-medium">node.</span> Map</button>
           <button onClick={async () => { await signOut(); router.push("/"); }} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600">Sign out</button>
         </div>
       </div>

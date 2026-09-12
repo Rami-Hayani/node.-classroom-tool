@@ -1,6 +1,24 @@
 const FLASK_API_URL = process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5000";
 
-async function request(baseUrl: string, path: string, options?: RequestInit) {
+export type LectureDeck = {
+  id: string;
+  course_id: string;
+  filename: string;
+  created_at?: string;
+  file_url?: string;
+  file_type?: string;
+};
+
+export type LectureSlide = {
+  id: string;
+  deck_id?: string;
+  slide_number: number;
+  title: string;
+  content: string;
+  concept_ids: string[];
+};
+
+async function request<T = any>(baseUrl: string, path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "1",
@@ -25,7 +43,7 @@ async function request(baseUrl: string, path: string, options?: RequestInit) {
     } catch {}
     throw new Error(message);
   }
-  return res.json();
+  return res.json() as Promise<T>;
 }
 
 export const flaskApi = {
@@ -34,6 +52,26 @@ export const flaskApi = {
     request(FLASK_API_URL, path, { method: "POST", body: JSON.stringify(body) }),
   put: (path: string, body: unknown) =>
     request(FLASK_API_URL, path, { method: "PUT", body: JSON.stringify(body) }),
+  uploadDeck: async (courseId: string, file: File) => {
+    const headers: Record<string, string> = { "ngrok-skip-browser-warning": "1" };
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${FLASK_API_URL}/api/courses/${courseId}/decks`, { method: "POST", headers, body: form });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to upload deck");
+    }
+    const data = await res.json();
+    if (data.deck) data.deck.file_url = `${FLASK_API_URL}/api/decks/${data.deck.id}/file`;
+    return data;
+  },
+  listDecks: async (courseId: string) => {
+    const data = await request<{ decks: LectureDeck[] }>(FLASK_API_URL, `/api/courses/${courseId}/decks`);
+    return { ...data, decks: (data.decks || []).map((deck) => ({ ...deck, file_url: `${FLASK_API_URL}/api/decks/${deck.id}/file` })) };
+  },
+  getDeckSlides: (deckId: string) => request<{ deck_id: string; slides: LectureSlide[] }>(FLASK_API_URL, `/api/decks/${deckId}/slides`),
 };
 
 export const nextApi = {

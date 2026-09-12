@@ -342,7 +342,7 @@ function Header() {
   return (
     <div className="text-center mb-10">
       <h1
-        className="font-[family-name:var(--font-instrument-serif)] text-5xl text-gray-800 tracking-tight mb-2"
+        className="font-[family-name:var(--font-geist-sans)] font-medium text-5xl text-gray-800 tracking-tight mb-2"
         style={{ letterSpacing: "-0.02em" }}
       >
         node.
