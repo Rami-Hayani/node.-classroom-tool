@@ -661,32 +661,32 @@ export default function KnowledgeGraph({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-3 z-30 p-3 rounded-lg bg-white/90 border border-gray-200/80 backdrop-blur-md">
-        <div className="flex flex-col gap-2 text-[10px] text-gray-600 font-medium">
+      <div className="absolute bottom-3 left-3 z-30 rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white via-white to-blue-50/60 p-3.5 shadow-[0_8px_24px_rgba(15,23,42,0.12)] backdrop-blur-md">
+        <div className="flex flex-col gap-2 text-[10px] font-medium text-gray-600">
           <div className="flex items-center gap-3">
-            <svg width="32" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#64748b" strokeWidth="1.5" /><polygon points="26,0 32,3 26,6" fill="#64748b" /></svg>
-            <span>{mode === "student" ? "Subtopic" : "Prerequisite"}</span>
+            <svg width="34" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="#64748b" strokeWidth="1.8" /><polygon points="26,0 34,4 26,8" fill="#64748b" /></svg>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">{mode === "student" ? "Subtopic" : "Prerequisite"}</span>
           </div>
-          <div className="h-px bg-gray-200 my-1" />
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+          <div className="my-1 h-px bg-slate-200" />
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.green }} />
+              <div className="h-3 w-3 rounded-full shadow-sm" style={{ background: COLOR_HEX.green }} />
               <span>Mastered · 75–100%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.yellow }} />
+              <div className="h-3 w-3 rounded-full shadow-sm" style={{ background: COLOR_HEX.yellow }} />
               <span>Developing · 50–74%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.orange }} />
+              <div className="h-3 w-3 rounded-full shadow-sm" style={{ background: COLOR_HEX.orange }} />
               <span>Needs support · 25–49%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.red }} />
+              <div className="h-3 w-3 rounded-full shadow-sm" style={{ background: COLOR_HEX.red }} />
               <span>Struggling · 1–24%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.gray }} />
+              <div className="h-3 w-3 rounded-full shadow-sm" style={{ background: COLOR_HEX.gray }} />
               <span>Not assessed · no evidence</span>
             </div>
           </div>

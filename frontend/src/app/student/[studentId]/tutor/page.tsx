@@ -10,16 +10,12 @@ import { nextApi } from "@/lib/api";
 import { confidenceToColor } from "@/lib/colors";
 import StudentTopNav from "@/components/student/StudentTopNav";
 import { formatConceptLabel } from "@/lib/concepts";
+import { useAuth } from "@/lib/auth-context";
 
-/** Aaron logo — cute "A" in Instrument Serif, aligned with landing page style */
-function AaronLogo({ className = "w-9 h-9 text-xl" }: { className?: string }) {
+/** Node mark for the frontend tutoring experience. */
+function NovaLogo({ className = "w-9 h-9 text-xl" }: { className?: string }) {
   return (
-    <div
-      className={`rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0 font-[family-name:var(--font-instrument-serif)] font-normal text-gray-800 ${className}`}
-      style={{ lineHeight: 1 }}
-    >
-      A
-    </div>
+    <img src="/favicon.ico" alt="Node" className={`rounded-xl border border-gray-200 bg-black object-cover shrink-0 ${className}`} />
   );
 }
 
@@ -40,6 +36,7 @@ const MOCK_INITIAL_MESSAGE: ChatMessage = {
 export default function TutoringView() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const studentId = params.studentId as string;
 
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -114,16 +111,16 @@ export default function TutoringView() {
 
   if (loading) {
     return <div className="flex h-screen flex-col bg-gray-50 font-sans">
-      <StudentTopNav studentId={studentId} />
+      <StudentTopNav studentId={studentId} email={user?.email} />
       <div className="flex flex-1 items-center justify-center">
-        <div className="flex flex-col items-center gap-3"><AaronLogo className="h-12 w-12 animate-pulse text-2xl" /><p className="text-sm font-medium text-gray-500">Loading tutoring workspace…</p></div>
+        <div className="flex flex-col items-center gap-3"><NovaLogo className="h-12 w-12 animate-pulse text-2xl" /><p className="text-sm font-medium text-gray-500">Loading tutoring workspace…</p></div>
       </div>
     </div>;
   }
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 relative overflow-hidden font-sans">
-      <StudentTopNav studentId={studentId} />
+      <StudentTopNav studentId={studentId} email={user?.email} />
       {/* Header — aligned with landing page */}
       <header className="hidden">
         <button
@@ -132,9 +129,9 @@ export default function TutoringView() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <AaronLogo />
+        <NovaLogo />
         <div>
-          <h1 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight leading-tight">Aaron - AI Tutor</h1>
+          <h1 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight leading-tight">Nova - AI Tutor</h1>
           <p className="text-xs text-gray-500 font-medium">Personalized learning session</p>
         </div>
       </header>

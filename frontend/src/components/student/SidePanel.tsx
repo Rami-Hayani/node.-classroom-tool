@@ -8,28 +8,45 @@ import {
   BarChart2,
   BookOpen,
   AlertCircle,
-  Sparkles,
   X,
 } from "lucide-react";
 import type { GraphNode } from "@/components/graph/KnowledgeGraph";
 import { COLOR_HEX, confidenceToNodeBorder } from "@/lib/colors";
 import { flaskApi, nextApi } from "@/lib/api";
-import { formatTimestamp } from "@/lib/graph";
 import { formatConceptLabel } from "@/lib/concepts";
-import PerplexityDialog from "./PerplexityDialog";
 import ConceptLearning from "./ConceptLearning";
-
-interface TranscriptExcerpt {
-  text: string;
-  timestamp_sec: number;
-  lecture_title?: string;
-}
 
 interface Resource {
   title: string;
   url: string;
   type: string;
   snippet: string;
+}
+
+const RESOURCE_LIBRARY: { matches: string[]; resources: Resource[] }[] = [
+  {
+    matches: ["binary tree", "binary search tree", "bst"],
+    resources: [
+      { title: "Binary Trees · OpenDSA", url: "https://opendsa-server.cs.vt.edu/ODSA/Books/Everything/html/BinaryTree.html", type: "article", snippet: "Definitions, properties, recursive structure, and practice." },
+      { title: "Trees · Stanford CS106B", url: "https://cs.stanford.edu/people/eroberts/courses/cs106b/handouts/37-Trees.pdf", type: "article", snippet: "Stanford notes with clear tree and binary-search-tree examples." },
+      { title: "Binary Search Trees · VisuAlgo", url: "https://visualgo.net/en/bst", type: "interactive", snippet: "Step through search, insertion, and deletion visually." },
+    ],
+  },
+  {
+    matches: ["recurrence", "divide and conquer", "sorting", "algorithm", "asymptotic"],
+    resources: [
+      { title: "Introduction to Algorithms · MIT OpenCourseWare", url: "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/", type: "course", snippet: "Lectures, notes, and problems for core algorithms topics." },
+      { title: "Algorithms · Khan Academy", url: "https://www.khanacademy.org/computing/computer-science/algorithms", type: "course", snippet: "Short explanations and visual practice for common algorithms." },
+    ],
+  },
+];
+
+function resourcesForConcept(label: string): Resource[] {
+  const normalized = label.toLowerCase().replace(/[_-]+/g, " ");
+  return RESOURCE_LIBRARY.find((group) => group.matches.some((match) => normalized.includes(match)))?.resources || [
+    { title: "Algorithms · MIT OpenCourseWare", url: "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/", type: "course", snippet: "A reliable starting point for data structures and algorithms." },
+    { title: "OpenDSA Data Structures", url: "https://opendsa-server.cs.vt.edu/ODSA/Books/Everything/html/", type: "interactive", snippet: "Interactive explanations and exercises across core structures." },
+  ];
 }
 
 interface SidePanelProps {
@@ -62,14 +79,8 @@ export default function SidePanel({
   const [pollScore, setPollScore] = useState<number | null>(null);
   const [pollLoading, setPollLoading] = useState(false);
 
-  // Node detail state
-  const [transcripts, setTranscripts] = useState<TranscriptExcerpt[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
-  const [loadingTranscripts, setLoadingTranscripts] = useState(false);
   const [loadingResources, setLoadingResources] = useState(false);
-
-  // Perplexity dialog state
-  const [perplexityOpen, setPerplexityOpen] = useState(false);
 
   // Concept learning dialog state
   const [learningOpen, setLearningOpen] = useState(false);
@@ -97,34 +108,19 @@ export default function SidePanel({
   // Fetch node detail data when selectedNode changes
   useEffect(() => {
     if (!selectedNode) {
-      setTranscripts([]);
       setResources([]);
       return;
     }
 
-    const nodeConf = selectedNode.confidence ?? 0;
-    if (nodeConf === 0 || nodeConf >= 0.7) {
-      setTranscripts([]);
-      setResources([]);
+    if ((selectedNode.confidence ?? 0) === 0) {
+      setResources(resourcesForConcept(selectedNode.label));
       return;
-    }
-
-    if (lectureId) {
-      setLoadingTranscripts(true);
-      flaskApi
-        .get(`/api/lectures/${lectureId}/transcript-excerpts?concept_ids=${selectedNode.id}`)
-        .then((data: TranscriptExcerpt[]) => setTranscripts(data))
-        .catch(() => setTranscripts([]))
-        .finally(() => setLoadingTranscripts(false));
     }
 
     setLoadingResources(true);
-    nextApi
-      .get(`/api/resources/search?concept=${encodeURIComponent(selectedNode.label)}${courseId ? `&courseId=${courseId}` : ""}`)
-      .then((data: { resources: Resource[] }) => setResources(data.resources || []))
-      .catch(() => setResources([]))
-      .finally(() => setLoadingResources(false));
-  }, [selectedNode?.id, selectedNode?.color, lectureId, courseId]);
+    setResources(resourcesForConcept(selectedNode.label));
+    setLoadingResources(false);
+  }, [selectedNode?.id, selectedNode?.label]);
 
   // Poll submit handler
   async function handlePollSubmit() {
@@ -180,15 +176,15 @@ export default function SidePanel({
           </button>
         </div>
 
-        {/* Confidence bar */}
-        <div className="space-y-1.5 mb-4">
+        {/* Confidence summary */}
+        <div className="mb-5 rounded-xl border border-gray-100 bg-gray-50/80 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-gray-500">Confidence</span>
+            <span className="text-xs font-medium text-gray-500">Current understanding</span>
             <span className="text-xs font-semibold" style={{ color: colorHex }}>
               {confidencePct}%
             </span>
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ width: `${confidencePct}%`, backgroundColor: colorHex }}
@@ -200,7 +196,6 @@ export default function SidePanel({
           <p className="text-sm text-gray-500 leading-relaxed mb-4">{selectedNode.description}</p>
         )}
 
-        {/* Green: mastery summary */}
         {isMastered && (
           <div className="p-4 rounded-xl bg-green-50 border border-green-200">
             <div className="flex items-start gap-3">
@@ -215,7 +210,6 @@ export default function SidePanel({
           </div>
         )}
 
-        {/* Gray: not yet covered */}
         {confidence === 0 && (
           <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
             <p className="text-sm text-gray-400 italic">
@@ -224,7 +218,6 @@ export default function SidePanel({
           </div>
         )}
 
-        {/* Red/Yellow: needs attention */}
         {isStruggling && (
           <div className="space-y-5">
             <div
@@ -251,37 +244,9 @@ export default function SidePanel({
                   >
                     {confidence < 0.4 ? "Developing" : confidence < 0.55 ? "Building" : "On Track"}
                   </h3>
-                  <p className="text-gray-500 text-xs mt-1">Review these resources to strengthen your understanding.</p>
+                  <p className="text-gray-500 text-xs mt-1">Build this skill with a short explanation and one worked example.</p>
                 </div>
               </div>
-            </div>
-
-            {/* Lecture Moments */}
-            <div>
-              <h4 className="text-[10px] font-medium text-gray-700 uppercase tracking-wider mb-2">
-                Lecture Moments
-              </h4>
-              {loadingTranscripts ? (
-                <p className="text-xs text-gray-400">Loading...</p>
-              ) : transcripts.length > 0 ? (
-                <div className="space-y-2">
-                  {transcripts.map((t, i) => (
-                    <div key={i} className="text-xs border-l-2 border-blue-300 pl-2.5 py-1">
-                      {t.lecture_title && (
-                        <span className="inline-flex items-center px-1.5 py-0 text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-md mr-1.5">
-                          {t.lecture_title}
-                        </span>
-                      )}
-                      <span className="font-mono text-blue-500 text-[10px]">
-                        {formatTimestamp(t.timestamp_sec)}
-                      </span>{" "}
-                      <span className="text-gray-600">{t.text}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-gray-400 italic">No lecture excerpts found.</p>
-              )}
             </div>
 
             {/* Resources */}
@@ -312,6 +277,7 @@ export default function SidePanel({
                         <p className="text-sm text-gray-700 truncate">{r.title}</p>
                         {r.snippet && <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">{r.snippet}</p>}
                       </div>
+                      <span className="text-[10px] font-medium text-blue-500 opacity-0 transition-opacity group-hover:opacity-100">Open ↗</span>
                     </a>
                   ))}
                 </div>
@@ -341,14 +307,6 @@ export default function SidePanel({
               </button>
             </div>
 
-            {/* Perplexity AI button */}
-            <button
-              onClick={() => setPerplexityOpen(true)}
-              className="w-full py-3 px-4 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 flex items-center justify-center gap-2 transition-all"
-            >
-              <Sparkles size={16} />
-              <span>Ask Perplexity AI</span>
-            </button>
           </div>
         )}
       </motion.div>
@@ -481,24 +439,6 @@ export default function SidePanel({
           ) : null}
         </AnimatePresence>
       </div>
-
-      {/* Perplexity AI Dialog */}
-      {selectedNode && (
-        <PerplexityDialog
-          isOpen={perplexityOpen}
-          onClose={() => setPerplexityOpen(false)}
-          conceptLabel={formatConceptLabel(selectedNode.label)}
-          conceptDescription={selectedNode.description}
-          lectureContext={
-            transcripts.length > 0
-              ? transcripts
-                  .slice(0, 3)
-                  .map((t) => `[${formatTimestamp(t.timestamp_sec)}] ${t.text}`)
-                  .join("\n\n")
-              : undefined
-          }
-        />
-      )}
 
       {/* Concept Learning Dialog */}
       {selectedNode && (

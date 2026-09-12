@@ -30,13 +30,20 @@ const endpoints = [
 
 export default function StarsBackground() {
   return (
-    <div className="fixed inset-0 z-0 overflow-hidden bg-white pointer-events-none" aria-hidden="true">
+    <div className="fixed inset-0 z-0 overflow-hidden bg-[#fbfdff] pointer-events-none" aria-hidden="true">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(199,229,255,0.4),transparent_32%),radial-gradient(circle_at_18%_78%,rgba(222,211,255,0.24),transparent_27%),radial-gradient(circle_at_85%_18%,rgba(207,246,237,0.3),transparent_24%)]" />
       <svg
         className="absolute inset-0 h-full w-full"
         viewBox="0 0 1440 900"
         preserveAspectRatio="xMidYMid slice"
         fill="none"
       >
+        <defs>
+          <pattern id="node-dot-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+            <circle cx="1.5" cy="1.5" r="1" fill={accent} opacity="0.08" />
+          </pattern>
+        </defs>
+        <rect width="1440" height="900" fill="url(#node-dot-grid)" />
         {paths.map((path, index) => {
           const pathId = `node-trace-${index}`;
           return (

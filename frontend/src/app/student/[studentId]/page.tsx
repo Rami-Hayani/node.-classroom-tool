@@ -204,15 +204,16 @@ export default function StudentView() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50 text-gray-800 relative overflow-hidden font-sans">
+    <div className="flex h-screen flex-col bg-black text-gray-800 relative overflow-hidden font-sans">
       <StudentTopNav studentId={studentId} email={user?.email} />
-      <div className="relative z-10 flex h-8 items-center justify-center gap-1.5 border-b border-gray-200/80 bg-white/80 text-[11px] text-gray-400">
-        <span className={`h-1.5 w-1.5 rounded-full ${lectureEnded ? "bg-gray-400" : "bg-red-500 animate-pulse"}`} />
-        {lectureEnded ? "Lecture ended" : lectureId ? "Live lecture" : "Waiting for class"}
-      </div>
+      <div className="relative z-10 mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[26px] border-[3px] border-black bg-white shadow-[0_12px_30px_rgba(22,42,55,0.12)] sm:mx-5 sm:mb-5">
+        <div className="flex h-9 shrink-0 items-center justify-center gap-1.5 border-b border-gray-200/80 bg-white text-[11px] text-gray-400">
+          <span className={`h-1.5 w-1.5 rounded-full ${lectureEnded ? "bg-gray-400" : "bg-red-500 animate-pulse"}`} />
+          {lectureEnded ? "Lecture ended" : lectureId ? "Live lecture" : "Waiting for class"}
+        </div>
 
-      {/* Main content */}
-      <main className="relative z-10 flex-1 flex gap-4 p-4 overflow-hidden">
+        {/* Main content */}
+        <main className="relative z-10 flex min-h-0 flex-1 gap-4 overflow-hidden bg-white p-3 sm:p-4">
         {/* Graph area */}
         <div className="flex-[3] h-full min-w-0 relative">
           {nodes.length > 0 ? (
@@ -250,7 +251,8 @@ export default function StudentView() {
             }}
           />
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

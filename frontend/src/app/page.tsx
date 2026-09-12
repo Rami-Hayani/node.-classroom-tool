@@ -166,6 +166,7 @@ export default function LandingPage() {
       <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <StarsBackground />
         <div className="relative z-10 flex flex-col items-center px-6">
+          <div className="pointer-events-none absolute -inset-x-32 top-16 -z-10 h-80 rounded-full bg-[radial-gradient(ellipse,rgba(186,224,255,0.34),transparent_68%)] blur-2xl" />
           <h1
             className="font-[family-name:var(--font-geist-sans)] font-medium text-7xl sm:text-8xl text-gray-800 tracking-[-0.055em] mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
             aria-label="node."

@@ -77,7 +77,7 @@ export default function StudyGroupPage() {
   const params = useParams();
   const router = useRouter();
   const socket = useSocket();
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const studentId = params.studentId as string;
 
   const [courseId, setCourseId] = useState<string | null>(null);
@@ -259,7 +259,7 @@ export default function StudyGroupPage() {
   if (loading) {
     return (
       <div className="flex h-screen flex-col bg-[#fafafa]">
-        <StudentTopNav studentId={studentId} />
+        <StudentTopNav studentId={studentId} email={user?.email} />
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-800 animate-pulse">
@@ -274,7 +274,7 @@ export default function StudyGroupPage() {
 
   return (
     <div className="flex h-screen flex-col bg-[#fafafa] text-gray-800 relative overflow-hidden font-sans">
-      <StudentTopNav studentId={studentId} />
+      <StudentTopNav studentId={studentId} email={user?.email} />
       {/* Header */}
       <header className="hidden">
         <div className="flex items-center gap-3">

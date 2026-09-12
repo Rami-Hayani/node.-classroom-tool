@@ -4,15 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, User, Lightbulb } from "lucide-react";
 import { nextApi } from "@/lib/api";
 
-/** Aaron avatar — matches tutor page logo (Instrument Serif "A") */
-function AaronAvatar() {
+/** Node mark for the frontend tutoring experience. */
+function NovaAvatar() {
   return (
-    <div
-      className="w-8 h-8 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0 font-[family-name:var(--font-instrument-serif)] text-gray-800 text-base"
-      style={{ lineHeight: 1 }}
-    >
-      A
-    </div>
+    <img src="/favicon.ico" alt="Node" className="h-8 w-8 rounded-xl border border-gray-200 bg-black object-cover shrink-0" />
   );
 }
 import ReactMarkdown from "react-markdown";
@@ -64,13 +59,13 @@ function MessageBubble({ role, content, timestamp, isLatest }: { role: string; c
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4 group ${isLatest ? "animate-in fade-in-0 slide-in-from-bottom-2 duration-300" : ""}`}>
       {!isUser && (
         <div className="mr-2.5 mt-5">
-          <AaronAvatar />
+          <NovaAvatar />
         </div>
       )}
 
       <div className={`flex flex-col ${isUser ? "items-end" : "items-start"} max-w-[75%]`}>
         <span className="text-xs text-gray-500 mb-1 px-1 font-medium">
-          {isUser ? "You" : "Aaron - AI Tutor"}
+          {isUser ? "You" : "Nova - AI Tutor"}
         </span>
         <div
           className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
@@ -156,10 +151,10 @@ function TypingIndicator() {
   return (
     <div className="flex justify-start mb-4">
       <div className="mr-2.5 mt-5">
-        <AaronAvatar />
+        <NovaAvatar />
       </div>
       <div className="flex flex-col items-start">
-        <span className="text-xs text-gray-500 mb-1 px-1 font-medium">Aaron - AI Tutor</span>
+        <span className="text-xs text-gray-500 mb-1 px-1 font-medium">Nova - AI Tutor</span>
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
           <div className="flex space-x-1.5">
             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -287,7 +282,7 @@ export default function ChatInterface({
               </div>
               <h3 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight mb-2">Ready to learn!</h3>
               <p className="text-sm text-gray-500">
-                Aaron - AI Tutor will help you strengthen concepts you&apos;re struggling with.
+                Nova - AI Tutor will help you strengthen concepts you&apos;re struggling with.
                 Ask questions and explain your thinking.
               </p>
               <SuggestedPrompts onSelect={handleSuggestedPrompt} />
