@@ -167,9 +167,9 @@ export default function LandingPage() {
         <StarsBackground />
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
-            className="font-[family-name:var(--font-instrument-serif)] text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#ff725f] tracking-[-0.06em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
+            className="font-sans font-light text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#ff725f] tracking-[-0.09em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
-            node
+            node.
           </h1>
           <p className="max-w-[min(90vw,52rem)] text-base sm:text-xl lg:text-2xl text-gray-600 tracking-tight text-center mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
             Know what your class understands and what to teach next.
