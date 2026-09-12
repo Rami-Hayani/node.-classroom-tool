@@ -64,3 +64,43 @@ def get_graph(course_id):
     # Cache with student mastery for 10s, without for 60s (structure changes rarely)
     cache_set(cache_key, result, ttl_seconds=10 if student_id else 60)
     return jsonify(result), 200
+
+
+@graph.route('/api/courses/<course_id>/concepts/<concept_id>/students', methods=['GET'])
+@optional_auth
+def get_concept_students(course_id, concept_id):
+    """Return teacher-only class distribution evidence for one concept."""
+    concept = supabase.table('concept_nodes').select('id, label, description, category').eq(
+        'id', concept_id
+    ).eq('course_id', course_id).execute().data
+    if not concept:
+        return jsonify({'error': 'Concept not found'}), 404
+
+    students = supabase.table('students').select('id, name, email').eq('course_id', course_id).execute().data
+    mastery = supabase.table('student_mastery').select('student_id, confidence').eq(
+        'concept_id', concept_id
+    ).execute().data
+    mastery_map = {row['student_id']: row.get('confidence') or 0.0 for row in mastery}
+
+    def color(confidence):
+        if confidence == 0.0:
+            return 'gray'
+        if confidence < 0.4:
+            return 'red'
+        if confidence < 0.7:
+            return 'yellow'
+        return 'green'
+
+    return jsonify({
+        'concept_id': concept_id,
+        'concept': concept[0],
+        'students': [
+            {
+                'id': student['id'],
+                'name': student.get('name') or student.get('email') or 'Student',
+                'confidence': mastery_map.get(student['id'], 0.0),
+                'color': color(mastery_map.get(student['id'], 0.0)),
+            }
+            for student in students
+        ],
+    }), 200

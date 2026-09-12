@@ -1,13 +1,11 @@
 /**
  * Misconception Summary — analyzes student responses to identify common errors when closing a poll.
  *
- * Model: claude-haiku-4-5-20251001
+ * Model: OpenAI chat model
  * Called by: POST /api/lectures/[id]/poll/[pollId]/close
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 export function buildMisconceptionSummaryPrompt(
   question: string,
@@ -37,7 +35,7 @@ export function parseMisconceptionSummaryResponse(response: string): string {
   if (!trimmed) {
     return "No clear misconception pattern detected.";
   }
-  // Strip wrapping quotes if Claude adds them
+  // Strip wrapping quotes if the model adds them
   if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
     return trimmed.slice(1, -1);
   }
@@ -54,16 +52,5 @@ export async function generateMisconceptionSummary(
 
   const prompt = buildMisconceptionSummaryPrompt(question, responses);
 
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 256,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    return "Unable to generate summary.";
-  }
-
-  return parseMisconceptionSummaryResponse(content.text);
+  return parseMisconceptionSummaryResponse(await openAIText(prompt, { maxTokens: 256 }));
 }

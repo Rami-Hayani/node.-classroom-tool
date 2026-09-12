@@ -1,17 +1,15 @@
 from flask import request, jsonify, Blueprint
 import os
 from dotenv import load_dotenv
-from anthropic import Anthropic
 
 from ..db import supabase
 from ..middleware.auth import optional_auth
 from ..cache import cache_get, cache_set
+from ..services.openai import openai_text
 
 load_dotenv()
 concepts = Blueprint("concepts", __name__)
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-anthropic_client = Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 
 @concepts.route('/api/concepts/<concept_id>', methods=['GET'])
@@ -186,7 +184,7 @@ def _generate_learning_page_content(concept_id):
 
     concept = concept_result.data[0]
 
-    # Generate learning page using Claude
+    # Generate learning page using OpenAI
     prompt = f"""Create a comprehensive learning page for the concept: {concept['label']}
 
 Description: {concept.get('description', 'N/A')}
@@ -203,13 +201,7 @@ Keep it concise but thorough (aim for 200-400 words). Use markdown formatting wi
 
 Return ONLY the markdown content, no additional commentary."""
 
-    response = anthropic_client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=2000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    content = response.content[0].text
+    content = openai_text(prompt, max_tokens=2000)
 
     # Check if already exists
     existing = supabase.table('concept_learning_pages').select('id').eq('concept_id', concept_id).execute()
@@ -232,10 +224,7 @@ Return ONLY the markdown content, no additional commentary."""
 @concepts.route('/api/concepts/<concept_id>/learning-page/generate', methods=['POST'])
 @optional_auth
 def generate_learning_page(concept_id):
-    """Generate and store learning page content for a concept using Claude."""
-    if not anthropic_client:
-        return jsonify({'error': 'Anthropic API not configured'}), 500
-
+    """Generate and store learning page content for a concept using OpenAI."""
     try:
         result = _generate_learning_page_content(concept_id)
         return jsonify({**result, 'status': 'generated'}), 200
@@ -254,7 +243,7 @@ def _generate_quiz_questions(concept_id):
 
     concept = concept_result.data[0]
 
-    # Generate quiz questions using Claude
+    # Generate quiz questions using OpenAI
     prompt = f"""Create 5 multiple choice quiz questions for the concept: {concept['label']}
 
 Description: {concept.get('description', 'N/A')}
@@ -282,13 +271,7 @@ Return your response as a JSON array with this exact structure:
 Note: correct_answer is 0 for A, 1 for B, 2 for C, 3 for D.
 Return ONLY the JSON array, no additional text."""
 
-    response = anthropic_client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=2500,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    content = response.content[0].text
+    content = openai_text(prompt, max_tokens=2500)
 
     # Parse JSON response (handle markdown code blocks)
     if '```json' in content:
@@ -299,7 +282,7 @@ Return ONLY the JSON array, no additional text."""
     questions = json.loads(content)
 
     if not isinstance(questions, list) or len(questions) != 5:
-        raise ValueError('Invalid response format from Claude')
+        raise ValueError('Invalid response format from OpenAI')
 
     # Delete existing questions for this concept
     supabase.table('concept_quiz_questions').delete().eq('concept_id', concept_id).execute()
@@ -324,10 +307,7 @@ Return ONLY the JSON array, no additional text."""
 @concepts.route('/api/concepts/<concept_id>/quiz/generate', methods=['POST'])
 @optional_auth
 def generate_quiz(concept_id):
-    """Generate and store quiz questions for a concept using Claude."""
-    if not anthropic_client:
-        return jsonify({'error': 'Anthropic API not configured'}), 500
-
+    """Generate and store quiz questions for a concept using OpenAI."""
     try:
         result = _generate_quiz_questions(concept_id)
         return jsonify({**result, 'status': 'generated'}), 200
@@ -339,9 +319,6 @@ def generate_quiz(concept_id):
 @optional_auth
 def generate_course_learning_content(course_id):
     """Generate learning pages and quizzes for all concepts in a course."""
-    if not anthropic_client:
-        return jsonify({'error': 'Anthropic API not configured'}), 500
-
     try:
         # Get all concepts for this course
         concepts_result = supabase.table('concept_nodes').select('id, label').eq('course_id', course_id).execute()

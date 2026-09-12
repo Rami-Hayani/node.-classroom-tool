@@ -1,6 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 interface ConceptDistribution {
   label: string;
@@ -89,17 +87,7 @@ export async function generateInterventions(
   console.log("=== INTERVENTION DEBUG ===");
   console.log("Input concepts:", JSON.stringify(concepts, null, 2));
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const content =
-    message.content[0].type === "text" ? message.content[0].text : "";
-  console.log("Claude raw response:", content);
-
-  const parsed = parseInterventionResponse(content);
+  const parsed = parseInterventionResponse(await openAIText(prompt, { maxTokens: 1024 }));
   console.log("Parsed suggestions:", JSON.stringify(parsed, null, 2));
   console.log("=== END DEBUG ===");
 

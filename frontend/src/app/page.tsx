@@ -195,7 +195,6 @@ export default function LandingPage() {
           <span className="text-sm text-gray-500 uppercase tracking-wider">Works with</span>
           <img src="/perplexity-logo.png" alt="Perplexity" className="h-10 opacity-80" />
           <img src="/render-logo.png" alt="Render" className="h-10 opacity-80" />
-          <img src="/anthropic-logo.png" alt="Anthropic" className="h-12 opacity-80" />
           <img src="/stanford-logo.png" alt="Stanford" className="h-16 opacity-80" />
           <img src="/purdue-logo.png" alt="Purdue" className="h-8 opacity-70" />
           <img src="/berkeley-logo.png" alt="Berkeley" className="h-12 opacity-80" />
@@ -404,14 +403,17 @@ function CreateCourseForm({ onCreated }: { onCreated: () => void }) {
     setCreating(true);
     setError("");
     try {
-      // Demo mode: skip course creation, use dummy ID
-      const existingCourseId = localStorage.getItem("courseId");
-      if (existingCourseId) localStorage.setItem("realCourseId", existingCourseId);
-      const dummyCourseId = "demo-" + crypto.randomUUID();
-      localStorage.setItem("courseId", dummyCourseId);
-      localStorage.setItem("demoUpload", "true");
+      const course = await flaskApi.post("/api/courses", {
+        name: courseName.trim(),
+        description: courseDesc.trim() || undefined,
+      }) as { id: string };
+      localStorage.setItem("courseId", course.id);
+      localStorage.removeItem("demoUpload");
+      localStorage.removeItem("realCourseId");
       onCreated();
-      refreshProfile();
+      await refreshProfile();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Course creation failed");
     } finally {
       setCreating(false);
     }

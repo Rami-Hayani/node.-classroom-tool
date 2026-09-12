@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { COLOR_HEX } from "@/lib/colors";
 import { nextApi } from "@/lib/api";
 import { useSocketEvent } from "@/lib/socket";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface PollState {
   pollId: string | null;
@@ -18,9 +19,13 @@ interface PollControlsProps {
   lectureId: string | null;
   concepts: { id: string; label: string }[];
   activeConceptId: string | null;
+  connectedStudentCount?: number;
+  followUpRequest?: { conceptId: string; nonce: number } | null;
+  onPollActivated?: (poll: { pollId: string; conceptId: string; conceptLabel: string }) => void;
+  onPollClosed?: (poll: { pollId: string; conceptId: string; conceptLabel: string; misconceptionSummary?: string }) => void;
 }
 
-export default function PollControls({ lectureId, concepts, activeConceptId }: PollControlsProps) {
+export default function PollControls({ lectureId, concepts, activeConceptId, connectedStudentCount = 0, followUpRequest, onPollActivated, onPollClosed }: PollControlsProps) {
   const [poll, setPoll] = useState<PollState>({
     pollId: null,
     question: null,
@@ -41,19 +46,27 @@ export default function PollControls({ lectureId, concepts, activeConceptId }: P
     }
   }, [activeConceptId, concepts, selectedConceptId]);
 
+  useEffect(() => {
+    if (!followUpRequest || !lectureId || poll.status !== "idle") return;
+    setSelectedConceptId(followUpRequest.conceptId);
+    void generateForConcept(followUpRequest.conceptId);
+    // The nonce intentionally makes repeated follow-ups possible.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followUpRequest?.nonce]);
+
   useSocketEvent<{ pollId: string }>("poll:response-received", (data) => {
     setPoll((current) => current.pollId === data.pollId
       ? { ...current, totalResponses: current.totalResponses + 1 }
       : current);
   });
 
-  async function handleGenerate() {
+  async function generateForConcept(conceptId: string) {
     if (!lectureId) return;
     setGenerating(true);
     setError(null);
     try {
       const data = await nextApi.post(`/api/lectures/${lectureId}/poll/generate`, {
-        conceptId: selectedConceptId || undefined,
+        conceptId: conceptId || undefined,
       });
       setPoll({
         pollId: data.pollId,
@@ -71,11 +84,18 @@ export default function PollControls({ lectureId, concepts, activeConceptId }: P
     }
   }
 
+  async function handleGenerate() {
+    await generateForConcept(selectedConceptId);
+  }
+
   async function handleActivate() {
     if (!lectureId || !poll.pollId) return;
     try {
       await nextApi.post(`/api/lectures/${lectureId}/poll/${poll.pollId}/activate`, {});
       setPoll((p) => ({ ...p, status: "active" }));
+      if (poll.conceptLabel) {
+        onPollActivated?.({ pollId: poll.pollId, conceptId: selectedConceptId, conceptLabel: poll.conceptLabel });
+      }
     } catch (err) {
       console.error("Failed to activate poll:", err);
     }
@@ -95,6 +115,9 @@ export default function PollControls({ lectureId, concepts, activeConceptId }: P
         } : null,
         totalResponses: data.totalResponses || 0,
       }));
+      if (poll.conceptLabel) {
+        onPollClosed?.({ pollId: poll.pollId, conceptId: selectedConceptId, conceptLabel: poll.conceptLabel, misconceptionSummary: data.misconceptionSummary });
+      }
     } catch (err) {
       console.error("Failed to close poll:", err);
     }
@@ -129,7 +152,7 @@ export default function PollControls({ lectureId, concepts, activeConceptId }: P
               >
                 {concepts.length === 0 && <option value="">No course concepts found</option>}
                 {concepts.map((concept) => (
-                  <option key={concept.id} value={concept.id}>{concept.label}</option>
+                  <option key={concept.id} value={concept.id}>{formatConceptLabel(concept.label)}</option>
                 ))}
               </select>
             </label>
@@ -172,7 +195,7 @@ export default function PollControls({ lectureId, concepts, activeConceptId }: P
             <p className="text-sm text-gray-600">{poll.question}</p>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs text-gray-500">Responses: {poll.totalResponses}</span>
+              <span className="text-xs text-gray-500">Responses: {poll.totalResponses} / {connectedStudentCount}</span>
             </div>
             <button
               onClick={handleClose}

@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { openAIText } from "@/lib/openai";
 
 const FLASK_API_URL = process.env.FLASK_API_URL || "http://localhost:8080";
 
@@ -44,7 +40,7 @@ export async function POST(
       .join(" ")
       .slice(-500);
 
-    // Call Claude for a single, relevant teaching suggestion
+    // Call OpenAI for a single, relevant teaching suggestion
     const prompt = `You are an expert teaching assistant analyzing a live lecture transcript.
 
 Here's what the professor just said:
@@ -61,14 +57,7 @@ Be SPECIFIC to the actual content, not generic advice.
 Return ONLY valid JSON (no markdown):
 { "suggestion": "your one-sentence suggestion here" }`;
 
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 150,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const content =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const content = await openAIText(prompt, { maxTokens: 150 });
 
     // Parse response
     let suggestion = "Continue explaining the current concept.";

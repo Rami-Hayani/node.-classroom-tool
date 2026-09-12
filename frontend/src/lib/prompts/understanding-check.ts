@@ -1,13 +1,11 @@
 /**
  * Understanding Check — sidecar Haiku call after each tutoring message to detect mastery.
  *
- * Model: claude-haiku-4-5-20251001
+ * Model: OpenAI chat model
  * Called after every student message in the tutoring flow.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 export function buildUnderstandingCheckPrompt(
   studentMessage: string,
@@ -63,16 +61,5 @@ export async function checkUnderstanding(
     targetConcepts
   );
 
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 128,
-    messages: [{ role: "user", content: prompt }],
-  }, { timeout: 5000 });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    return { understood: false, concept_label: "" };
-  }
-
-  return parseUnderstandingCheckResponse(content.text);
+  return parseUnderstandingCheckResponse(await openAIText(prompt, { maxTokens: 128 }));
 }

@@ -6,18 +6,9 @@
 
 import { Router, json } from "express";
 import { emitToLectureRoom } from "./socket-helpers";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "./openai";
 
 const router = Router();
-
-// Lazy init
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic | null {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return null;
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: key });
-  return _anthropic;
-}
 
 function getFlaskUrl(): string {
   return process.env.FLASK_API_URL || "http://localhost:5000";
@@ -56,11 +47,6 @@ async function generateMisconceptionSummary(
     return "No responses to analyze.";
   }
 
-  const anthropic = getAnthropic();
-  if (!anthropic) {
-    return "Unable to generate summary (AI service unavailable).";
-  }
-
   const responseList = responses
     .map((r, i) => `Student ${i + 1} (${r.eval_result}): "${r.answer}"`)
     .join("\n");
@@ -79,19 +65,8 @@ Return ONLY a plain text summary (no JSON, no markdown). Example:
 "Most students confused the chain rule with the product rule, applying the wrong differentiation formula to composite functions."`;
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 256,
-      messages: [{ role: "user", content: prompt }],
-    }, { timeout: 8000 });
-
-    const content = message.content[0];
-    if (content.type !== "text") {
-      return "Unable to generate summary.";
-    }
-
-    let text = content.text.trim();
-    // Strip wrapping quotes if Claude adds them
+    let text = (await openAIText(prompt, { maxTokens: 256 })).trim();
+    // Strip wrapping quotes if the model adds them
     if (text.startsWith('"') && text.endsWith('"')) {
       text = text.slice(1, -1);
     }
@@ -161,7 +136,7 @@ router.post("/api/lectures/:id/poll/:pollId/close", json(), async (req, res) => 
       }
     }
 
-    // Generate misconception summary via Claude Haiku
+    // Generate misconception summary via OpenAI
     let misconceptionSummary = "No summary available.";
     try {
       misconceptionSummary = await generateMisconceptionSummary(

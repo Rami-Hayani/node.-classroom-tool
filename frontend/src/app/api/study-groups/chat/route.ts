@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-
-const anthropic = ANTHROPIC_API_KEY ? new Anthropic({
-  apiKey: ANTHROPIC_API_KEY,
-}) : null;
+import { openAIText } from "@/lib/openai";
 
 /**
  * POST /api/study-groups/chat
  *
  * Chat endpoint for study group partners.
- * Uses Claude Haiku to simulate partner responses with short, concise messages.
+ * Uses OpenAI to simulate partner responses with short, concise messages.
  */
 export async function POST(request: NextRequest) {
   let body;
@@ -35,7 +29,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Fallback responses if Claude isn't available
+  // Fallback responses if OpenAI is unavailable
   const fallbackResponses = [
     "hmm let me think about that",
     "oh yeah i remember that part",
@@ -47,14 +41,8 @@ export async function POST(request: NextRequest) {
     "hmm not sure, wanna look it up?",
   ];
 
-  // If no Anthropic key, use fallback
-  if (!anthropic) {
-    const reply = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
-    return NextResponse.json({ reply });
-  }
-
   try {
-    // Build conversation context for Claude
+    // Build conversation context for OpenAI
     const systemPrompt = `You're ${partnerName}, texting with a study partner about: ${(concepts || []).join(", ")}
 
 TEXT LIKE A REAL STUDENT:
@@ -72,7 +60,7 @@ Examples:
 - "wait can you explain that part again"`;
 
     // Format conversation history
-    const messages: Anthropic.MessageParam[] = [];
+    const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     if (conversationHistory && Array.isArray(conversationHistory)) {
       for (const msg of conversationHistory) {
@@ -89,17 +77,7 @@ Examples:
       content: message
     });
 
-    // Call Claude Haiku
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 80,  // Keep it short like real texts
-      system: systemPrompt,
-      messages,
-    }, { timeout: 5000 });
-
-    const reply = response.content[0].type === "text"
-      ? response.content[0].text
-      : "I'm not sure what to say about that.";
+    const reply = await openAIText(messages.map((m) => `${m.role}: ${m.content}`).join("\n"), { maxTokens: 80, system: systemPrompt });
 
     return NextResponse.json({ reply });
 

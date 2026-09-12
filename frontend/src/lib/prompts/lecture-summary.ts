@@ -1,13 +1,11 @@
 /**
  * Lecture Summary — generates a bullet-point summary of a completed lecture.
  *
- * Model: claude-haiku-4-5-20251001
+ * Model: OpenAI chat model
  * Called by: POST /api/lectures/:id/summary route after RTMS stops
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 export function buildLectureSummaryPrompt(
   transcriptText: string,
@@ -70,19 +68,5 @@ export async function generateLectureSummary(
 
   const prompt = buildLectureSummaryPrompt(transcriptText, conceptLabels);
 
-  const message = await anthropic.messages.create(
-    {
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    },
-    { timeout: 15000 }
-  );
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    return { bullets: ["Lecture summary could not be generated."], titleSummary: "Lecture Summary" };
-  }
-
-  return parseLectureSummaryResponse(content.text);
+  return parseLectureSummaryResponse(await openAIText(prompt, { maxTokens: 1024 }));
 }

@@ -1,14 +1,12 @@
 /**
  * Concept Detection — identifies which known concepts are discussed in a transcript chunk.
  *
- * Model: claude-haiku-4-5-20251001
+ * Model: OpenAI chat model
  * Called by: Person 4's transcript route handler
  * Latency target: < 1 second
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 export function buildConceptDetectionPrompt(
   transcriptChunk: string,
@@ -41,7 +39,7 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 export function parseConceptDetectionResponse(response: string): string[] {
   try {
-    // Strip markdown code fences if Claude wraps the JSON
+    // Strip markdown code fences if the model wraps the JSON
     let cleaned = response.trim();
     if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
@@ -64,7 +62,7 @@ export function parseConceptDetectionResponse(response: string): string[] {
 }
 
 /**
- * Detect concepts in a transcript chunk using Claude Haiku.
+ * Detect concepts in a transcript chunk using OpenAI.
  * Person 4 imports this function in the transcript route handler.
  */
 export async function detectConcepts(
@@ -75,14 +73,5 @@ export async function detectConcepts(
 
   const prompt = buildConceptDetectionPrompt(text, conceptLabels);
 
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 256,
-    messages: [{ role: "user", content: prompt }],
-  }, { timeout: 5000 });
-
-  const content = message.content[0];
-  if (content.type !== "text") return [];
-
-  return parseConceptDetectionResponse(content.text);
+  return parseConceptDetectionResponse(await openAIText(prompt, { maxTokens: 256 }));
 }

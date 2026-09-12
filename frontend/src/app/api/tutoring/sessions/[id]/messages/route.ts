@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "@/lib/openai";
 import { buildTutoringSystemPrompt } from "@/lib/prompts/tutoring";
 import { checkUnderstanding } from "@/lib/prompts/understanding-check";
 import { emitToStudent } from "@server/socket-helpers";
 import { flaskGet, flaskPost, flaskPut } from "@/lib/flask";
-
-const anthropic = new Anthropic();
 
 // GET: Fetch all messages for a tutoring session
 export async function GET(
@@ -106,18 +104,8 @@ export async function POST(
     );
   }
 
-  // 4. Call Claude Sonnet with full history
-  const aiMessage = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 512,
-    system: systemPrompt,
-    messages: conversationHistory,
-  }, { timeout: 15000 });
-
-  const assistantContent =
-    aiMessage.content[0].type === "text"
-      ? aiMessage.content[0].text
-      : "Could you tell me more about what you understand so far?";
+  // 4. Call OpenAI with full history
+  const assistantContent = await openAIText(conversationHistory.map((m) => `${m.role}: ${m.content}`).join("\n"), { maxTokens: 512, system: systemPrompt });
 
   // 5. Store assistant response
   const storedMessages = await flaskPost<{ id: string }[]>(

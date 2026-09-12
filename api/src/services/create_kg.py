@@ -2,9 +2,9 @@ import math
 import tempfile
 
 from PyPDF2 import PdfReader, PdfWriter
-import anthropic
 import os
 import base64
+import requests
 
 
 def create_kg(file_path: str) -> str:
@@ -27,10 +27,9 @@ def create_kg(file_path: str) -> str:
 
     os.remove(tmp_path)
 
-    client = anthropic.Anthropic(
-        api_key=os.getenv("ANTHROPIC_API_KEY"),
-        timeout=120.0,
-    )
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is missing from the server environment")
 
     prompt = """Analyze this course document and create a prerequisite knowledge graph.
 
@@ -84,31 +83,46 @@ Requirements:
 Return ONLY the JSON object.
 """
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=8192,
-        messages=[
-            {
+    response = requests.post(
+        "https://api.openai.com/v1/responses",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": os.getenv("OPENAI_MODEL", "gpt-4o"),
+            "input": [{
                 "role": "user",
                 "content": [
                     {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": pdf_data
-                        }
+                        "type": "input_file",
+                        "filename": "course.pdf",
+                        "file_data": f"data:application/pdf;base64,{pdf_data}",
                     },
-                    {
-                        "type": "text",
-                        "text": prompt
-                    }
-                ]
-            }
-        ]
+                    {"type": "input_text", "text": prompt},
+                ],
+            }],
+        },
+        timeout=120,
     )
-
-    return message.content[0].text
+    response.raise_for_status()
+    data = response.json()
+    output = data.get("output_text")
+    if not output:
+        # The REST response may omit the SDK convenience field and return
+        # generated text under output[].content[].text instead.
+        text_parts = []
+        for item in data.get("output", []):
+            for content in item.get("content", []):
+                if content.get("type") == "output_text" and content.get("text"):
+                    text_parts.append(content["text"])
+        output = "\n".join(text_parts).strip()
+    if not output:
+        output_types = [item.get("type") for item in data.get("output", [])]
+        raise RuntimeError(
+            f"OpenAI returned no knowledge graph text (output types: {output_types})"
+        )
+    return output
 
 
 def parse_kg(markdown: str) -> dict:

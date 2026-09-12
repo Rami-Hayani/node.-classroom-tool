@@ -6,7 +6,7 @@
  */
 
 import { Router, json } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "./openai";
 import { emitToLectureRoom, getStudentsInLecture } from "./socket-helpers";
 
 const router = Router();
@@ -44,12 +44,6 @@ async function flaskPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 // --- Concept detection (inlined from src/lib/prompts/concept-detection.ts) ---
-// Lazy init: static imports run before dotenv.config loads ANTHROPIC_API_KEY
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic {
-  if (!_anthropic) _anthropic = new Anthropic();
-  return _anthropic;
-}
 
 function buildConceptDetectionPrompt(chunk: string, labels: string[]): string {
   return `You are analyzing a live lecture transcript to detect which concepts are being taught.
@@ -92,14 +86,7 @@ function parseConceptDetectionResponse(response: string): string[] {
 async function detectConcepts(text: string, labels: string[]): Promise<string[]> {
   if (labels.length === 0) return [];
   const prompt = buildConceptDetectionPrompt(text, labels);
-  const message = await getAnthropic().messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 256,
-    messages: [{ role: "user", content: prompt }],
-  }, { timeout: 5000 });
-  const content = message.content[0];
-  if (content.type !== "text") return [];
-  return parseConceptDetectionResponse(content.text);
+  return parseConceptDetectionResponse(await openAIText(prompt, { maxTokens: 256 }));
 }
 
 // --- Concept map cache (simple in-memory, no Redis needed here) ---

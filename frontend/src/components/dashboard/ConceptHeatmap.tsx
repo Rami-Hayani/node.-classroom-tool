@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
 import { CheckCircle2, AlertTriangle, Users } from "lucide-react";
 import { COLOR_HEX, confidenceToFill } from "@/lib/colors";
+import { formatConceptLabel } from "@/lib/concepts";
 
 export interface HeatmapConcept {
   id: string;
@@ -11,6 +12,10 @@ export interface HeatmapConcept {
   category?: string;
   distribution: { green: number; yellow: number; red: number; gray: number };
   avg_confidence: number;
+  struggling_count?: number;
+  mastered_count?: number;
+  assessed_count?: number;
+  split_class?: boolean;
 }
 
 interface ConceptHeatmapProps {
@@ -438,7 +443,7 @@ export default function ConceptHeatmap({
       return Object.entries(groups).map(([cat, items]) => ({
         name: cat,
         children: items.map((c) => ({
-          name: c.label,
+          name: formatConceptLabel(c.label),
           size: 1,
           concept: c,
         })),
@@ -449,7 +454,7 @@ export default function ConceptHeatmap({
     return [...concepts]
       .sort((a, b) => a.avg_confidence - b.avg_confidence)
       .map((c) => ({
-        name: c.label,
+        name: formatConceptLabel(c.label),
         size: Math.max(0.1, 1 - c.avg_confidence),
         concept: c,
       }));

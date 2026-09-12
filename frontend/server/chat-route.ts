@@ -6,20 +6,11 @@
  */
 
 import { Router, json } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "./openai";
 
 const router = Router();
 
-// Lazy init
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic | null {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return null;
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: key });
-  return _anthropic;
-}
-
-// Fallback responses if Claude isn't available
+// Fallback responses if OpenAI is unavailable
 const fallbackResponses = [
   "That's a good question! Let me think about that for a sec.",
   "Oh interesting point! Have you looked at the lecture notes on that?",
@@ -35,14 +26,6 @@ router.post("/api/study-groups/chat", json(), async (req, res) => {
 
     if (!message || !partnerName) {
       return res.status(400).json({ error: "message and partnerName required" });
-    }
-
-    const anthropic = getAnthropic();
-
-    // Fallback if no Claude
-    if (!anthropic) {
-      const reply = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
-      return res.json({ reply });
     }
 
     // Build system prompt
@@ -64,11 +47,11 @@ Examples of good responses:
 - "Totally! It's like how momentum keeps things moving even after you stop pushing."`;
 
     // Format conversation history
-    const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
+    const history: Array<{ role: "user" | "assistant"; content: string }> = [];
 
     if (conversationHistory && Array.isArray(conversationHistory)) {
       for (const msg of conversationHistory) {
-        messages.push({
+        history.push({
           role: msg.role === "user" ? "user" : "assistant",
           content: msg.content
         });
@@ -76,22 +59,12 @@ Examples of good responses:
     }
 
     // Add current message
-    messages.push({
+    history.push({
       role: "user",
       content: message
     });
 
-    // Call Claude
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 150,
-      system: systemPrompt,
-      messages,
-    }, { timeout: 5000 });
-
-    const reply = response.content[0].type === "text"
-      ? response.content[0].text
-      : "I'm not sure what to say about that.";
+    const reply = await openAIText(history.map((message) => `${message.role}: ${message.content}`).join("\n"), { maxTokens: 150, system: systemPrompt });
 
     res.json({ reply });
 

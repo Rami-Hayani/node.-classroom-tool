@@ -1,7 +1,7 @@
 /**
  * Tutoring Agent — system prompt builder for the post-lecture AI tutor.
  *
- * Model: claude-sonnet-4-5-20250929
+ * Model: OpenAI chat model
  * Multi-turn conversation with full history sent each request.
  */
 

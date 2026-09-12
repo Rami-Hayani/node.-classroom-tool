@@ -1,7 +1,6 @@
 flask
 flask-cors
 supabase
-anthropic
 pypdf2
 gunicorn
 python-dotenv

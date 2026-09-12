@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import TranscriptFeed, { type TranscriptChunk } from "@/components/dashboard/TranscriptFeed";
-import ConceptHeatmap, { type HeatmapConcept } from "@/components/dashboard/ConceptHeatmap";
-import ConceptTimeline, { type TimelineConcept } from "@/components/dashboard/ConceptTimeline";
-import StudentList, { type StudentSummary } from "@/components/dashboard/StudentList";
+import { type HeatmapConcept } from "@/components/dashboard/ConceptHeatmap";
+import ConceptHeatmap from "@/components/dashboard/ConceptHeatmap";
+import KnowledgeGraph, { type GraphNode, type GraphEdge } from "@/components/graph/KnowledgeGraph";
+import ConceptInsightPanel from "@/components/dashboard/ConceptInsightPanel";
+import ClassInsightCard from "@/components/dashboard/ClassInsightCard";
 import PollControls from "@/components/dashboard/PollControls";
 import InterventionPanel from "@/components/dashboard/InterventionPanel";
 import { useSocket, useSocketEvent, useSocketReady } from "@/lib/socket";
 import { flaskApi, nextApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { formatConceptLabel } from "@/lib/concepts";
 
 
 export default function ProfessorDashboard() {
@@ -20,16 +22,21 @@ export default function ProfessorDashboard() {
   const [courseId, setCourseId] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [lectureId, setLectureId] = useState<string | null>(null);
-  const [transcriptChunks, setTranscriptChunks] = useState<TranscriptChunk[]>([]);
-  const [timelineConcepts, setTimelineConcepts] = useState<TimelineConcept[]>([]);
   const [heatmapData, setHeatmapData] = useState<HeatmapConcept[]>([]);
-  const [students, setStudents] = useState<StudentSummary[]>([]);
+  const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [classStarting, setClassStarting] = useState(false);
   const [classEnding, setClassEnding] = useState(false);
   const [connectedStudentCount, setConnectedStudentCount] = useState(0);
   const [activeConceptId, setActiveConceptId] = useState<string | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
+  const [selectedConceptId, setSelectedConceptId] = useState<string | null>(null);
+  const [diagnostic, setDiagnostic] = useState<{ concept_id: string; responders: number; struggling_responders: number; root_cause: { concept_id: string; label: string; weak_overlap: number; struggling_responders: number; ratio: number } | null } | null>(null);
+  const [misconception, setMisconception] = useState<string | undefined>();
+  const [followUpRequest, setFollowUpRequest] = useState<{ conceptId: string; nonce: number } | null>(null);
+  const [interventionTrigger, setInterventionTrigger] = useState(0);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const socket = useSocket();
   const socketReady = useSocketReady();
@@ -37,9 +44,11 @@ export default function ProfessorDashboard() {
   // Load course ID from auth context, then localStorage, then API
   useEffect(() => {
     if (authCourses.length > 0) {
-      setCourseId(authCourses[0].id);
-      setJoinCode(authCourses[0].join_code || null);
-      localStorage.setItem("courseId", authCourses[0].id);
+      const stored = localStorage.getItem("courseId");
+      const selected = authCourses.find((course) => course.id === stored) || authCourses[0];
+      setCourseId(selected.id);
+      setJoinCode(selected.join_code || null);
+      localStorage.setItem("courseId", selected.id);
       return;
     }
     const stored = localStorage.getItem("courseId");
@@ -71,14 +80,11 @@ export default function ProfessorDashboard() {
       .catch(() => {});
   }, [courseId]);
 
-  // Fetch students with mastery distributions (single batch endpoint)
   useEffect(() => {
     if (!courseId) return;
-    flaskApi
-      .get(`/api/courses/${courseId}/students/summary`)
-      .then((summaries: StudentSummary[]) => {
-        setStudents(summaries);
-      })
+    flaskApi.get(`/api/courses/${courseId}/graph`)
+      .then((data) => data as { nodes: GraphNode[]; edges: GraphEdge[] })
+      .then((data) => { setGraphNodes(data.nodes || []); setGraphEdges(data.edges || []); })
       .catch(() => {});
   }, [courseId]);
 
@@ -157,55 +163,17 @@ export default function ProfessorDashboard() {
     useCallback((data) => setConnectedStudentCount(data.count), []),
   );
 
-  // Socket: transcript:chunk
-  useSocketEvent<{ text: string; timestamp: number; speakerName?: string; detectedConcepts?: { id: string; label: string }[] }>(
-    "transcript:chunk",
-    useCallback((data) => {
-      setTranscriptChunks((prev) => [
-        ...prev,
-        {
-          id: `tc-${Date.now()}`,
-          text: data.text,
-          timestamp: data.timestamp,
-          speakerName: data.speakerName,
-          detectedConcepts: data.detectedConcepts,
-        },
-      ]);
-      if (data.detectedConcepts && data.detectedConcepts.length > 0) {
-        setActiveConceptId(data.detectedConcepts[data.detectedConcepts.length - 1].id);
-        setTimelineConcepts((prev) => {
-          const existing = new Set(prev.map((c) => c.id));
-          const newConcepts = data.detectedConcepts!
-            .filter((c) => !existing.has(c.id))
-            .map((c) => ({ id: c.id, label: c.label }));
-          return [...prev, ...newConcepts];
-        });
-      }
-    }, []),
-  );
-
-  // Socket: lecture:concept-detected
-  useSocketEvent<{ conceptId: string; label: string }>(
-    "lecture:concept-detected",
-    useCallback((data) => {
-      setActiveConceptId(data.conceptId);
-      setTimelineConcepts((prev) => {
-        if (prev.some((c) => c.id === data.conceptId)) return prev;
-        return [...prev, { id: data.conceptId, label: data.label }];
-      });
-    }, []),
-  );
-
   // Socket: poll:closed
   useSocketEvent<{ pollId: string; results: unknown }>(
     "poll:closed",
     useCallback(() => {
-      // PollControls handles its own state; refresh heatmap
+      // PollControls handles its own state; refresh the class map.
       if (courseId) {
         flaskApi
           .get(`/api/courses/${courseId}/heatmap`)
           .then((data: { concepts: HeatmapConcept[]; total_students: number }) => {
             if (data.concepts) setHeatmapData(data.concepts);
+            setInterventionTrigger((value) => value + 1);
           })
           .catch(() => {});
       }
@@ -226,42 +194,38 @@ export default function ProfessorDashboard() {
     }, [courseId]),
   );
 
-  // Socket: mastery:updated — refresh student mastery distributions
-  useSocketEvent<{ studentId: string; conceptId: string; newColor: string }>(
-    "mastery:updated",
-    useCallback((data) => {
-      setStudents((prev) =>
-        prev.map((s) => {
-          if (s.id !== data.studentId) return s;
-          // Re-fetch this student's mastery to update distribution
-          flaskApi
-            .get(`/api/students/${s.id}/mastery`)
-            .then((mastery: { confidence: number }[]) => {
-              const dist = { green: 0, lime: 0, yellow: 0, orange: 0, gray: 0 };
-              for (const m of mastery) {
-                const c = m.confidence;
-                if (c === 0) dist.gray++;
-                else if (c < 0.4) dist.orange++;
-                else if (c < 0.55) dist.yellow++;
-                else if (c < 0.7) dist.lime++;
-                else dist.green++;
-              }
-              setStudents((current) =>
-                current.map((cs) =>
-                  cs.id === s.id ? { ...cs, masteryDistribution: dist } : cs
-                )
-              );
-            })
-            .catch(() => {});
-          return s;
-        })
-      );
-    }, []),
-  );
+  const classNodes = useMemo(() => graphNodes.map((node) => {
+    const heat = heatmapData.find((item) => item.id === node.id);
+    return { ...node, avgConfidence: heat?.avg_confidence ?? 0, distribution: heat?.distribution, strugglingCount: heat?.struggling_count ?? 0, masteredCount: heat?.mastered_count ?? 0, splitClass: heat?.split_class ?? false };
+  }), [graphNodes, heatmapData]);
+  const selectedConcept = classNodes.find((node) => node.id === selectedConceptId) || null;
+  const weakPrerequisiteIds = useMemo(() => {
+    if (!activeConceptId) return new Set<string>();
+    const weak = new Set<string>();
+    for (const edge of graphEdges) {
+      if (edge.target === activeConceptId) {
+        const source = classNodes.find((node) => node.id === edge.source);
+        if (source && (source.avgConfidence ?? 0) < 0.55) weak.add(source.id);
+      }
+    }
+    return weak;
+  }, [activeConceptId, graphEdges, classNodes]);
+  const splitConceptIds = useMemo(() => new Set(classNodes.filter((node) => node.splitClass).map((node) => node.id)), [classNodes]);
+  const strugglingConceptIds = classNodes.filter((node) => (node.avgConfidence ?? 0) < 0.55).map((node) => node.id);
 
-  const strugglingConceptIds = heatmapData
-    .filter((c) => c.distribution.red > 0 || c.avg_confidence < 0.5)
-    .map((c) => c.id);
+  function handleCourseChange(nextCourseId: string) {
+    const selected = authCourses.find((course) => course.id === nextCourseId);
+    if (!selected) return;
+    setCourseId(selected.id);
+    setJoinCode(selected.join_code || null);
+    setLectureId(null);
+    setActiveConceptId(null);
+    setSelectedConceptId(null);
+    setDiagnostic(null);
+    setMisconception(undefined);
+    localStorage.setItem("courseId", selected.id);
+    localStorage.removeItem("lectureId");
+  }
 
   return (
     <div className="flex h-screen flex-col bg-[#fafafa] relative overflow-hidden">
@@ -272,7 +236,12 @@ export default function ProfessorDashboard() {
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
             prereq
           </h1>
-          <span className="text-sm text-gray-400 font-light">Professor Dashboard</span>
+          <span className="text-sm text-gray-400 font-light">Live Class Understanding Map</span>
+          {authCourses.length > 0 && (
+            <select value={courseId || authCourses[0].id} onChange={(event) => handleCourseChange(event.target.value)} className="max-w-[220px] rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm">
+              {authCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
+            </select>
+          )}
           {lectureId && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -336,36 +305,18 @@ export default function ProfessorDashboard() {
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="relative z-10 flex flex-1 overflow-hidden gap-3 p-3">
-        {/* Left: Transcript */}
-        <div className="w-1/4 flex flex-col">
-          <TranscriptFeed chunks={transcriptChunks} />
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+        <div className="flex min-h-[440px] flex-1 gap-3">
+          <section className="flex min-w-0 flex-[7] flex-col rounded-2xl border border-gray-200/80 bg-white p-3">
+            <div className="flex items-center justify-between px-2 pb-2"><div><h2 className="text-sm font-semibold text-gray-800">Class Understanding Map</h2><p className="text-xs text-gray-400">Mastery is shown on the prerequisite graph. Click a concept for student-level evidence.</p></div><div className="flex items-center gap-3 text-[10px] text-gray-400"><button onClick={() => setShowHeatmap((value) => !value)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 font-medium text-gray-600 hover:bg-gray-50">{showHeatmap ? "Hide mastery overview" : "Show mastery overview"}</button><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-red-400" />struggling</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400" />developing</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />mastered</span></div></div>
+            <div className="min-h-0 flex-1"><KnowledgeGraph nodes={classNodes} edges={graphEdges} mode="professor" activeConceptId={activeConceptId} weakPrerequisiteIds={weakPrerequisiteIds} splitConceptIds={splitConceptIds} onNodeClick={(node) => { setSelectedConceptId(node.id); setActiveConceptId(node.id); }} /></div>
+          </section>
+          <aside className="flex w-[30%] min-w-[280px] flex-col gap-3"><ConceptInsightPanel courseId={courseId} concept={selectedConcept} /><ClassInsightCard rootCause={diagnostic?.root_cause || null} misconception={misconception} splitClass={Boolean(selectedConcept?.splitClass)} onAskDiagnostic={() => { if (diagnostic?.root_cause) { setActiveConceptId(diagnostic.root_cause.concept_id); setFollowUpRequest({ conceptId: diagnostic.root_cause.concept_id, nonce: Date.now() }); } }} /></aside>
         </div>
-
-        {/* Center: Heatmap */}
-        <div className="flex-1 flex flex-col">
-          <ConceptHeatmap concepts={heatmapData} totalStudents={totalStudents} activeConceptId={activeConceptId} />
-        </div>
-
-        {/* Right: Student list */}
-        <div className="w-1/5 flex flex-col">
-          <StudentList students={students} />
-        </div>
-      </div>
-
-      {/* Bottom: Timeline + Controls */}
-      <div className="relative z-10 bg-white/80 backdrop-blur-sm border-t border-gray-200/80">
-        <div className="border-b border-gray-100 px-5">
-          <ConceptTimeline concepts={timelineConcepts} />
-        </div>
-        <div className="grid grid-cols-2 gap-3 p-3">
-          <PollControls
-            lectureId={lectureId}
-            concepts={heatmapData.map((c) => ({ id: c.id, label: c.label }))}
-            activeConceptId={activeConceptId}
-          />
-          <InterventionPanel lectureId={lectureId} strugglingConceptIds={strugglingConceptIds} timelineConceptIds={timelineConcepts.map(c => c.id)} transcriptChunkCount={transcriptChunks.length} />
+        {showHeatmap && <div className="h-[300px]"><ConceptHeatmap concepts={heatmapData} totalStudents={totalStudents} activeConceptId={activeConceptId} /></div>}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <PollControls lectureId={lectureId} concepts={classNodes.map((c) => ({ id: c.id, label: formatConceptLabel(c.label) }))} activeConceptId={activeConceptId} connectedStudentCount={connectedStudentCount} followUpRequest={followUpRequest} onPollActivated={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }} onPollClosed={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); setMisconception(poll.misconceptionSummary); setInterventionTrigger((value) => value + 1); nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null)); }} />
+          <InterventionPanel lectureId={lectureId} conceptIds={strugglingConceptIds.slice(0, 5)} triggerVersion={interventionTrigger} />
         </div>
       </div>
 

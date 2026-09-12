@@ -1,16 +1,14 @@
 /**
  * Response Evaluation — evaluates a student's free-form answer to a poll question.
  *
- * Model: claude-haiku-4-5-20251001
+ * Model: OpenAI chat model
  * Called by: POST /api/polls/[pollId]/respond
  *
  * Returns eval_result (NOT colors, NOT confidence values).
  * Flask applies confidence rules internally.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 export type EvalResult = "correct" | "partial" | "wrong";
 
@@ -87,16 +85,5 @@ export async function evaluateResponse(
     studentAnswer
   );
 
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 512,
-    messages: [{ role: "user", content: prompt }],
-  }, { timeout: 8000 });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    return parseResponseEvaluationResponse("{}");
-  }
-
-  return parseResponseEvaluationResponse(content.text);
+  return parseResponseEvaluationResponse(await openAIText(prompt, { maxTokens: 512 }));
 }

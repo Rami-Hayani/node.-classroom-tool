@@ -1,5 +1,4 @@
 from flask import request, jsonify, Blueprint, g
-from supabase import create_client, Client
 import os
 import string
 import random
@@ -16,11 +15,6 @@ from ..cache import cache_delete_pattern
 
 load_dotenv()
 courses = Blueprint("courses", __name__)
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 
 def _generate_join_code(length=6):
     """Generate a random alphanumeric join code."""

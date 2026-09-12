@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "@/lib/openai";
 import { buildTutoringSystemPrompt } from "@/lib/prompts/tutoring";
 import { confidenceToColor } from "@/lib/colors";
 import { flaskGet, flaskPost } from "@/lib/flask";
-
-const anthropic = new Anthropic();
 
 export async function POST(request: NextRequest) {
   const { studentId, lectureId } = (await request.json()) as {
@@ -101,23 +99,7 @@ export async function POST(request: NextRequest) {
     transcriptExcerpts
   );
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 512,
-    system: systemPrompt,
-    messages: [
-      {
-        role: "user",
-        content:
-          "Hi, I just finished the lecture and I'd like some help with the concepts I struggled with.",
-      },
-    ],
-  });
-
-  const openingContent =
-    message.content[0].type === "text"
-      ? message.content[0].text
-      : "Let's work through the concepts you found challenging. Which one would you like to start with?";
+  const openingContent = await openAIText("Hi, I just finished the lecture and I'd like some help with the concepts I struggled with.", { maxTokens: 512, system: systemPrompt });
 
   // Create tutoring session via Flask
   const session = await flaskPost<{ id: string }>(

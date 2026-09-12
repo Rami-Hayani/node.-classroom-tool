@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from flask import Blueprint, request, jsonify
+import os
 from ..db import supabase
 from ..services.generate_content import generate_learning_page, generate_practice_quiz, get_further_reading
 from ..middleware.auth import optional_auth
@@ -9,25 +10,17 @@ load_dotenv()
 pages = Blueprint('pages', __name__)
 
 
-@pages.route('/api/debug/test-claude', methods=['GET'])
+@pages.route('/api/debug/test-openai', methods=['GET'])
 @optional_auth
-def test_claude():
-    """Debug endpoint to test Claude directly"""
-    import anthropic
-    import os
-
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=100,
-        messages=[{"role": "user", "content": "Return only JSON: {\"test\": \"hello\"}"}]
-    )
+def test_openai():
+    """Debug endpoint to test OpenAI connectivity."""
+    from ..services.openai import openai_text
+    raw_response = openai_text('Return only JSON: {"test": "hello"}', max_tokens=100)
 
     return jsonify({
-        "raw_response": message.content[0].text,
-        "response_length": len(message.content[0].text),
-        "api_key_set": bool(os.getenv("ANTHROPIC_API_KEY"))
+        "raw_response": raw_response,
+        "response_length": len(raw_response),
+        "api_key_set": bool(os.getenv("OPENAI_API_KEY"))
     }), 200
 
 
@@ -77,7 +70,7 @@ def generate_page(student_id):
     if responses_resp.data:
         past_mistakes = [r['quiz_questions']['explanation'] for r in responses_resp.data if r.get('quiz_questions')]
 
-    # Generate page using Claude
+    # Generate page using OpenAI
     result = generate_learning_page(
         concept['label'],
         concept.get('description', ''),
@@ -174,7 +167,7 @@ def generate_quiz(page_id):
     if responses_resp.data:
         past_mistakes = [r['misconception'] for r in responses_resp.data if r.get('misconception')]
 
-    # Generate quiz using Claude
+    # Generate quiz using OpenAI
     result = generate_practice_quiz(
         page['concept_nodes']['label'],  # FIX: Use page directly
         page['concept_nodes'].get('description', ''),

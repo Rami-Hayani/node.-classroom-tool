@@ -31,7 +31,8 @@ def get_heatmap(course_id):
     # Get all concepts for the course
     concepts = supabase.table('concept_nodes').select('id, label, category').eq('course_id', course_id).execute().data
 
-    # Get all students in the course
+    # Get all students in the course. Missing mastery rows are treated as
+    # unassessed rather than silently disappearing from the distribution.
     students = supabase.table('students').select('id').eq('course_id', course_id).execute().data
     total_students = len(students)
 
@@ -40,7 +41,7 @@ def get_heatmap(course_id):
 
     # Batch: fetch ALL mastery records for all concepts in one query
     concept_ids = [c['id'] for c in concepts]
-    all_mastery = supabase.table('student_mastery').select('concept_id, confidence').in_(
+    all_mastery = supabase.table('student_mastery').select('student_id, concept_id, confidence').in_(
         'concept_id', concept_ids
     ).limit(5000).execute().data
 
@@ -48,12 +49,13 @@ def get_heatmap(course_id):
     mastery_by_concept = {}
     for record in all_mastery:
         cid = record['concept_id']
-        mastery_by_concept.setdefault(cid, []).append(record['confidence'])
+        mastery_by_concept.setdefault(cid, {})[record['student_id']] = record.get('confidence') or 0.0
 
     heatmap_data = []
     for concept in concepts:
         concept_id = concept['id']
-        confidences = mastery_by_concept.get(concept_id, [])
+        confidence_map = mastery_by_concept.get(concept_id, {})
+        confidences = [confidence_map.get(student['id'], 0.0) for student in students]
 
         # Count colors
         distribution = {"green": 0, "yellow": 0, "red": 0, "gray": 0}
@@ -64,12 +66,27 @@ def get_heatmap(course_id):
 
         avg_confidence = total_confidence / len(confidences) if confidences else 0.0
 
+        assessed_count = distribution['green'] + distribution['yellow'] + distribution['red']
+        mastered_count = distribution['green']
+        struggling_count = distribution['red']
+        split_class = (
+            assessed_count >= 6
+            and struggling_count >= 3
+            and mastered_count >= 3
+            and struggling_count / assessed_count >= 0.25
+            and mastered_count / assessed_count >= 0.25
+        )
+
         heatmap_data.append({
             "id": concept_id,
             "label": concept['label'],
             "category": concept.get('category', ''),
             "distribution": distribution,
-            "avg_confidence": round(avg_confidence, 2)
+            "avg_confidence": round(avg_confidence, 2),
+            "struggling_count": struggling_count,
+            "mastered_count": mastered_count,
+            "assessed_count": assessed_count,
+            "split_class": split_class,
         })
 
     result = {

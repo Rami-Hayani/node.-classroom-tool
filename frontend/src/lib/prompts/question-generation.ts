@@ -1,13 +1,11 @@
 /**
  * Question Generation — generates a poll question for a concept based on lecture context.
  *
- * Model: claude-sonnet-4-5-20250929
+ * Model: OpenAI chat model
  * Called by: POST /api/lectures/[id]/poll/generate
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
+import { openAIText } from "@/lib/openai";
 
 export function buildQuestionGenerationPrompt(
   conceptLabel: string,
@@ -76,16 +74,5 @@ export async function generateQuestion(
     recentTranscript
   );
 
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-5-20250929",
-    max_tokens: 512,
-    messages: [{ role: "user", content: prompt }],
-  }, { timeout: 15000 });
-
-  const content = message.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude");
-  }
-
-  return parseQuestionGenerationResponse(content.text);
+  return parseQuestionGenerationResponse(await openAIText(prompt, { maxTokens: 512 }));
 }

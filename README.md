@@ -6,10 +6,10 @@ A browser-native live classroom that turns lectures into personalized knowledge 
 
 ## Features
 
-- **PDF → knowledge graph** — Upload course material; Claude extracts concepts and prerequisites (e.g. 35+ nodes from a 200-page textbook). Each student has their own graph; mastery is a confidence score (0–1) driven by polls, tutoring, and attendance.
-- **Live classroom intelligence** — Teachers start a live class in the browser; optional transcript input and the demo simulator run through concept detection (Claude Haiku) and Socket.IO.
+- **PDF → knowledge graph** — Upload course material; OpenAI extracts concepts and prerequisites (e.g. 35+ nodes from a 200-page textbook). Each student has their own graph; mastery is a confidence score (0–1) driven by polls, tutoring, and attendance.
+- **Live classroom intelligence** — Teachers start a live class in the browser; optional transcript input and the demo simulator run through concept detection (OpenAI) and Socket.IO.
 - **Contextual polling** — AI generates poll questions from what was just said and targets concepts the class is struggling with. Responses update mastery and graph colors (red → yellow → green) instantly.
-- **Aaron (AI tutor)** — Post-lecture Socratic tutor (Claude Sonnet) personalized to each student’s weak nodes; Perplexity Sonar surfaces learning resources (articles, videos) for specific gaps.
+- **Aaron (AI tutor)** — Post-lecture Socratic tutor (OpenAI) personalized to each student’s weak nodes; Perplexity Sonar surfaces learning resources (articles, videos) for specific gaps.
 - **Study groups** — Match students by complementary strengths/weaknesses and chat about who can teach what.
 - **Professor dashboard** — Live heatmap by concept, per-student graphs, and in-lecture reinforcement suggestions (what to re-explain, which examples to add).
 
@@ -19,7 +19,7 @@ A browser-native live classroom that turns lectures into personalized knowledge 
 |-----------|------------|
 | Frontend | Next.js, React, Tailwind CSS, react-force-graph-2d, Socket.IO |
 | Backend | Flask (Python), Supabase (PostgreSQL) |
-| AI | Claude Sonnet 4.5 (extraction, questions, tutoring), Claude Haiku 4.5 (detection, grading) |
+| AI | OpenAI (extraction, questions, tutoring, detection, grading) |
 | Live | Socket.IO, optional transcript input, Perplexity Sonar (resources) |
 | Deploy | Render (frontend + API + Redis) |
 
@@ -28,7 +28,7 @@ A browser-native live classroom that turns lectures into personalized knowledge 
 - Python 3.10+
 - Node.js 18+
 - [Supabase](https://supabase.com) project
-- API keys: Anthropic (Claude), Perplexity
+- API keys: OpenAI, Perplexity
 
 ## Installation
 
@@ -38,7 +38,7 @@ cd prereq
 cp .env.example .env
 ```
 
-Edit `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `ANTHROPIC_API_KEY`, `PERPLEXITY_API_KEY`, and `FLASK_API_URL` (your Flask API base URL). The service-role key is server-only and is required for trusted profile/course writes. Set `DEMO_MODE=true` only when you explicitly want the transcript simulator and demo auto-responder.
+Edit `.env` with `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `PERPLEXITY_API_KEY`, and `FLASK_API_URL` (your Flask API base URL). The service-role key is server-only and is required for trusted profile/course writes. Set `DEMO_MODE=true` only when you explicitly want the transcript simulator and demo auto-responder.
 
 Create the database tables in Supabase (SQL Editor).
 

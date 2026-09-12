@@ -48,7 +48,7 @@ export async function POST(
     const chronologicalLectures = [...allLectures].reverse();
     const lectureNumber = chronologicalLectures.findIndex((l) => l.id === lectureId) + 1;
 
-    // Generate summary via Claude
+    // Generate summary via OpenAI
     const { bullets, titleSummary } = await generateLectureSummary(
       fullTranscript,
       conceptLabels

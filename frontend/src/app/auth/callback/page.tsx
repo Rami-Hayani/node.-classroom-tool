@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 const FLASK_API_URL = process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5000";
 
 export default function AuthCallbackPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,6 +32,11 @@ export default function AuthCallbackPage() {
       const token = refreshed.session?.access_token || data.session.access_token;
       localStorage.setItem("token", token);
 
+      // Keep the existing course/profile context when this Google account
+      // has signed in before. OAuth is authentication, not class creation.
+      // The API's /auth/me endpoint will load any existing enrollments/courses
+      // after the full app reload below.
+
       if (selectedRole === "teacher") {
         const profileResponse = await fetch(`${FLASK_API_URL}/api/auth/teacher-profile`, {
           method: "POST",
@@ -50,7 +53,12 @@ export default function AuthCallbackPage() {
       }
 
       localStorage.removeItem("oauthRole");
-      if (!cancelled) router.replace("/");
+      if (!cancelled) {
+        // Reload the app so AuthProvider initializes from the newly stored
+        // token. This is important for Google students who have no student
+        // row until they enroll in their first course.
+        window.location.replace("/");
+      }
     }
 
     finishOAuth().catch((callbackError) => {
@@ -58,7 +66,7 @@ export default function AuthCallbackPage() {
     });
 
     return () => { cancelled = true; };
-  }, [router]);
+  }, []);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">

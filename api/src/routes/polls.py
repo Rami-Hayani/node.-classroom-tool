@@ -141,3 +141,54 @@ def get_poll_responses(poll_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Failed to fetch responses', 'details': str(e)}), 500
+
+
+@polls.route('/api/polls/<poll_id>/diagnostic', methods=['GET'])
+@optional_auth
+def get_poll_diagnostic(poll_id):
+    """Find weak direct prerequisites among students who struggled on a poll."""
+    poll_rows = supabase.table('poll_questions').select('id, concept_id, lecture_id').eq('id', poll_id).execute().data
+    if not poll_rows or not poll_rows[0].get('concept_id'):
+        return jsonify({'concept_id': None, 'responders': 0, 'struggling_responders': 0, 'root_cause': None}), 200
+
+    poll = poll_rows[0]
+    responses = supabase.table('poll_responses').select('student_id, evaluation').eq('question_id', poll_id).execute().data
+    struggling = [
+        row['student_id'] for row in responses
+        if (row.get('evaluation') or {}).get('eval_result') in ('wrong', 'partial', 'incorrect')
+    ]
+    if not struggling:
+        return jsonify({'concept_id': poll['concept_id'], 'responders': len(responses), 'struggling_responders': 0, 'root_cause': None}), 200
+
+    edges = supabase.table('concept_edges').select('source_id, target_id').eq(
+        'target_id', poll['concept_id']
+    ).execute().data
+    prerequisite_ids = [edge['source_id'] for edge in edges]
+    if not prerequisite_ids:
+        return jsonify({'concept_id': poll['concept_id'], 'responders': len(responses), 'struggling_responders': len(struggling), 'root_cause': None}), 200
+
+    concepts = supabase.table('concept_nodes').select('id, label').in_('id', prerequisite_ids).execute().data
+    best = None
+    for prerequisite in concepts:
+        mastery = supabase.table('student_mastery').select('student_id, confidence').eq(
+            'concept_id', prerequisite['id']
+        ).in_('student_id', struggling).execute().data
+        weak_overlap = sum(1 for row in mastery if (row.get('confidence') or 0.0) < 0.55)
+        candidate = {
+            'concept_id': prerequisite['id'],
+            'label': prerequisite['label'],
+            'weak_overlap': weak_overlap,
+            'struggling_responders': len(struggling),
+            'ratio': round(weak_overlap / len(struggling), 2) if struggling else 0,
+        }
+        if weak_overlap and (best is None or candidate['ratio'] > best['ratio']):
+            best = candidate
+
+    if best and best['ratio'] < 0.5:
+        best = None
+    return jsonify({
+        'concept_id': poll['concept_id'],
+        'responders': len(responses),
+        'struggling_responders': len(struggling),
+        'root_cause': best,
+    }), 200

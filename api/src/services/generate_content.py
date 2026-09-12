@@ -1,6 +1,6 @@
-import anthropic
 import os
 import json
+from .openai import openai_text
 
 from dotenv import load_dotenv
 
@@ -8,8 +8,7 @@ load_dotenv()
 
 def generate_learning_page(concept_label: str, concept_description: str,
                            past_mistakes: list, current_confidence: float) -> dict:
-    """Generate personalized learning page using Claude"""
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    """Generate personalized learning page using OpenAI."""
 
     mistakes_context = ""
     if past_mistakes:
@@ -38,13 +37,7 @@ Requirements:
 - No fluff or excessive motivation
 - Return ONLY valid JSON, no markdown code blocks"""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    response_text = message.content[0].text.strip()
+    response_text = openai_text(prompt, max_tokens=2000).strip()
 
     if response_text.startswith('```'):
         lines = response_text.split('\n')
@@ -58,8 +51,7 @@ Requirements:
 
 def generate_practice_quiz(concept_label: str, concept_description: str,
                            past_mistakes: list, current_confidence: float) -> dict:
-    """Generate 5-question practice quiz using Claude"""
-    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    """Generate 5-question practice quiz using OpenAI."""
 
     mistakes_context = ""
     if past_mistakes:
@@ -96,13 +88,7 @@ Requirements:
 - Options should be roughly same length
 - Return ONLY valid JSON, no markdown code blocks"""
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=3000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    response_text = message.content[0].text.strip()
+    response_text = openai_text(prompt, max_tokens=3000).strip()
 
     if response_text.startswith('```'):
         lines = response_text.split('\n')

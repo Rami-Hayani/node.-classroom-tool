@@ -5,21 +5,9 @@
  */
 
 import { Router, json } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "./openai";
 
 const router = Router();
-
-// Lazy init
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic | null {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    console.error("[intervention] ANTHROPIC_API_KEY not set");
-    return null;
-  }
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: key });
-  return _anthropic;
-}
 
 function getFlaskUrl(): string {
   return process.env.FLASK_API_URL || "http://localhost:5000";
@@ -147,28 +135,8 @@ router.post("/api/lectures/:id/interventions", json(), async (req, res) => {
       return res.status(404).json({ error: "No matching concepts found in heatmap" });
     }
 
-    // Generate intervention suggestions via Claude (removed slow enriched context)
-    console.log("[intervention] Generating suggestions with Claude...");
-    const anthropic = getAnthropic();
-    if (!anthropic) {
-      return res.status(500).json({ error: "AI service not configured" });
-    }
-
     const prompt = buildInterventionPrompt(targetConcepts);
-    console.log(`[intervention] Calling Claude with ${targetConcepts.length} concepts...`);
-    const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    }, { timeout: 30000 });
-    console.log(`[intervention] Claude response received`);
-
-    const content = message.content[0];
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type from Claude");
-    }
-
-    const rawSuggestions = parseInterventionResponse(content.text);
+    const rawSuggestions = parseInterventionResponse(await openAIText(prompt, { maxTokens: 1024 }));
 
     // Map concept labels back to IDs
     const labelToId = new Map(concepts.map((c) => [c.label, c.id]));

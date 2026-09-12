@@ -6,18 +6,9 @@
 
 import { Router, json } from "express";
 import { emitToStudent, emitToProfessor } from "./socket-helpers";
-import Anthropic from "@anthropic-ai/sdk";
+import { openAIText } from "./openai";
 
 const router = Router();
-
-// Lazy init
-let _anthropic: Anthropic | null = null;
-function getAnthropic(): Anthropic | null {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return null;
-  if (!_anthropic) _anthropic = new Anthropic({ apiKey: key });
-  return _anthropic;
-}
 
 function getFlaskUrl(): string {
   return process.env.FLASK_API_URL || "http://localhost:5000";
@@ -60,22 +51,12 @@ async function flaskPut<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Evaluate response with Claude
+// Evaluate response with OpenAI
 async function evaluateResponse(
   question: string,
   expectedAnswer: string,
   studentAnswer: string
 ): Promise<{ eval_result: "correct" | "partial" | "wrong"; feedback: string; reasoning: string }> {
-  const anthropic = getAnthropic();
-  if (!anthropic) {
-    // Fallback evaluation
-    return {
-      eval_result: "partial",
-      feedback: "Your answer has been recorded.",
-      reasoning: "AI evaluation unavailable"
-    };
-  }
-
   const prompt = `You are evaluating a student's answer to a poll question in a live lecture.
 
 QUESTION: ${question}
@@ -96,18 +77,7 @@ Return ONLY valid JSON (no markdown):
 { "eval_result": "correct"|"partial"|"wrong", "feedback": "...", "reasoning": "..." }`;
 
   try {
-    const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 256,
-      messages: [{ role: "user", content: prompt }],
-    }, { timeout: 8000 });
-
-    const content = message.content[0];
-    if (content.type !== "text") {
-      throw new Error("Unexpected response");
-    }
-
-    let cleaned = content.text.trim();
+    let cleaned = (await openAIText(prompt, { maxTokens: 256 })).trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
     }
@@ -148,7 +118,7 @@ router.post("/api/polls/:pollId/respond", json(), async (req, res) => {
       lecture_id: string;
     }>(`/api/polls/${pollId}`);
 
-    // Evaluate the student's answer with Claude Haiku
+    // Evaluate the student's answer with OpenAI
     const evaluation = await evaluateResponse(poll.question, poll.expected_answer, answer);
     console.log(`[poll-respond] Evaluation: ${evaluation.eval_result}`);
 

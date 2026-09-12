@@ -19,7 +19,7 @@ export async function POST(
   const { id: lectureId } = await params;
   const { text, timestamp, speakerName } = await req.json();
 
-  // Step 1: Detect concepts using Claude Haiku
+  // Step 1: Detect concepts using OpenAI
   const { labels, labelToId } = await getConceptMap(lectureId);
   const detectedLabels = await detectConcepts(text, labels);
   console.log(`[Concept Detection] "${text}" → detected: [${detectedLabels.join(", ")}] (from ${labels.length} known concepts)`);

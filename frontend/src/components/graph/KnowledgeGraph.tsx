@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import useMeasure from "react-use-measure";
 import { COLOR_HEX, confidenceToNodeFill, confidenceToNodeBorder } from "@/lib/colors";
 import { RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import { formatConceptLabel } from "@/lib/concepts";
 
 export interface GraphNode {
   id: string;
@@ -15,6 +16,11 @@ export interface GraphNode {
   description?: string;
   category?: string;
   difficulty?: number;
+  avgConfidence?: number;
+  distribution?: { green: number; yellow: number; red: number; gray: number };
+  strugglingCount?: number;
+  masteredCount?: number;
+  splitClass?: boolean;
 }
 
 export interface GraphEdge {
@@ -27,6 +33,9 @@ interface KnowledgeGraphProps {
   edges: GraphEdge[];
   activeConceptId?: string | null;
   highlightedNodeIds?: Set<string>;
+  weakPrerequisiteIds?: Set<string>;
+  splitConceptIds?: Set<string>;
+  mode?: "student" | "professor";
   onNodeClick?: (node: GraphNode) => void;
   width?: number;
   height?: number;
@@ -74,6 +83,9 @@ export default function KnowledgeGraph({
   activeConceptId,
   highlightedNodeIds,
   onNodeClick,
+  weakPrerequisiteIds,
+  splitConceptIds,
+  mode = "student",
 }: KnowledgeGraphProps) {
   const [containerRef, bounds] = useMeasure();
   const [simNodes, setSimNodes] = useState<SimNode[]>([]);
@@ -427,6 +439,7 @@ export default function KnowledgeGraph({
 
               const isSourceRel = activeSet.has(source.id);
               const isTargetRel = activeSet.has(target.id);
+              const isWeakPrerequisiteEdge = weakPrerequisiteIds?.has(source.id) && activeConceptId === target.id;
               const isPath = isSourceRel && isTargetRel;
 
               // Shorten line to stop at edge of nodes (so arrowhead is visible)
@@ -464,17 +477,17 @@ export default function KnowledgeGraph({
               const sourceRank = revealRank.get(source.id) ?? 0;
               const targetRank = revealRank.get(target.id) ?? 0;
               const edgeRevealed = revealProgress > Math.max(sourceRank, targetRank);
-              const particleColor = isPath ? "#3b82f6" : "#94a3b8";
+              const particleColor = isWeakPrerequisiteEdge ? "#f59e0b" : isPath ? "#3b82f6" : "#94a3b8";
 
               return (
                 <g key={`link-${i}`}>
                   <path
                     d={d}
-                    stroke={isPath ? "#3b82f6" : "#64748b"}
-                    strokeWidth={isPath ? 2.5 : 1.5}
-                    opacity={edgeRevealed ? (isPath ? 1 : activeSet.size > 0 ? 0.15 : 0.8) : 0}
+                    stroke={isWeakPrerequisiteEdge ? "#f59e0b" : isPath ? "#3b82f6" : "#64748b"}
+                    strokeWidth={isWeakPrerequisiteEdge || isPath ? 2.5 : 1.5}
+                    opacity={edgeRevealed ? (isWeakPrerequisiteEdge || isPath ? 1 : activeSet.size > 0 ? 0.15 : 0.8) : 0}
                     fill="none"
-                    markerEnd={isPath ? "url(#arrowhead-active)" : "url(#arrowhead)"}
+                    markerEnd={isWeakPrerequisiteEdge || isPath ? "url(#arrowhead-active)" : "url(#arrowhead)"}
                     style={{ transition: "opacity 0.4s ease-out" }}
                   />
                   {/* Particle flowing along edge */}
@@ -503,16 +516,20 @@ export default function KnowledgeGraph({
         <div className="absolute inset-0 pointer-events-none" data-graph-nodes>
           {simNodes.map((node) => {
             if (node.x === undefined || node.y === undefined) return null;
-            const size = getNodeRadius(node.label, node.relevance || 0.6);
-            const borderColor = confidenceToNodeBorder(node.confidence ?? 0);
+            const displayLabel = formatConceptLabel(node.label);
+            const size = mode === "professor" ? 44 : getNodeRadius(displayLabel, node.relevance || 0.6);
+            const nodeConfidence = mode === "professor" ? (node.avgConfidence ?? 0) : (node.confidence ?? 0);
+            const borderColor = confidenceToNodeBorder(nodeConfidence);
             const isInSet = activeSet.has(node.id);
             const hasSelection = activeSet.size > 0;
             const isDimmed = hasSelection && !isInSet;
             const isActive = node.id === activeConceptId;
+            const isWeakPrerequisite = weakPrerequisiteIds?.has(node.id);
+            const isSplit = splitConceptIds?.has(node.id) || node.splitClass;
             const glowColor = isActive ? COLOR_HEX.active : borderColor;
 
             // 4-bucket fill matching heatmap: orange / yellow / green / gray
-            const baseFill = confidenceToNodeFill(node.confidence ?? 0);
+            const baseFill = confidenceToNodeFill(nodeConfidence);
 
             // Node reveals based on its rank in the left-to-right order
             const nodeRank = revealRank.get(node.id) ?? 0;
@@ -547,12 +564,16 @@ export default function KnowledgeGraph({
                   background: isInSet || isActive
                     ? `linear-gradient(135deg, ${glowColor}20, ${glowColor}10)`
                     : baseFill,
-                  border: isInSet
+                  border: isWeakPrerequisite
+                    ? "2.5px solid #f59e0b"
+                    : isInSet
                     ? `2.5px solid ${glowColor}`
                     : isActive
                       ? `2.5px solid ${COLOR_HEX.active}`
                       : `2px solid ${borderColor}`,
-                  boxShadow: isInSet
+                  boxShadow: isWeakPrerequisite
+                    ? "0 0 22px rgba(245,158,11,0.45), 0 4px 12px rgba(245,158,11,0.18)"
+                    : isInSet
                     ? `0 0 24px ${glowColor}40, 0 4px 12px ${glowColor}20`
                     : isActive
                       ? `0 0 20px ${COLOR_HEX.active}35, 0 4px 12px ${COLOR_HEX.active}15`
@@ -584,9 +605,22 @@ export default function KnowledgeGraph({
                       overflowWrap: "normal",
                     }}
                   >
-                    {node.label}
+                    {displayLabel}
                   </p>
                 </div>
+                {mode === "professor" && (
+                  <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-gray-500">
+                    {Math.round(nodeConfidence * 100)}%
+                    {typeof node.strugglingCount === "number" && node.strugglingCount > 0 && (
+                      <span className="ml-1 text-red-500">{node.strugglingCount} struggling</span>
+                    )}
+                  </div>
+                )}
+                {mode === "professor" && isSplit && (
+                  <span className="absolute -top-2 -right-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[8px] font-bold text-violet-700 shadow-sm">
+                    split
+                  </span>
+                )}
               </motion.div>
             );
           })}

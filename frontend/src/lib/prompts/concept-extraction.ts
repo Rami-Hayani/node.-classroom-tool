@@ -2,9 +2,9 @@
  * Concept Extraction Prompt
  *
  * Used by Person 1 in Flask (api/services/concept_extraction.py).
- * This prompt is sent alongside a base64-encoded PDF via Claude's document API.
+ * This prompt is sent alongside a base64-encoded PDF via OpenAI's file input.
  *
- * Model: claude-sonnet-4-5-20250929
+ * Model: OpenAI chat model
  * Input: PDF document (first 10 pages, base64) + this prompt text
  * Output: JSON matching { concepts: [...], edges: [...] }
  *
