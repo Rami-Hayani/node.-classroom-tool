@@ -43,7 +43,6 @@ export default function PollControls({ lectureId, concepts, activeConceptId, sel
   const [responses, setResponses] = useState<PollResponse[]>([]);
   const [responseRefresh, setResponseRefresh] = useState(0);
   const [showResponses, setShowResponses] = useState(true);
-  const [savingGrade, setSavingGrade] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedNodeId && concepts.some((c) => c.id === selectedNodeId)) {
@@ -80,20 +79,10 @@ export default function PollControls({ lectureId, concepts, activeConceptId, sel
       .catch(() => setResponses([]));
   }, [poll.pollId, poll.status, responseRefresh]);
 
-  async function saveGrade(response: PollResponse, value: string) {
-    const score = Number(value);
-    if (!Number.isFinite(score) || score < 0 || score > 100) return;
-    setSavingGrade(response.id);
-    try {
-      await flaskApi.put(`/api/polls/${poll.pollId}/responses/${response.id}/grade`, { score });
-      setResponses((current) => current.map((item) => item.id === response.id ? { ...item, evaluation: { ...(item.evaluation || {}), score } } : item));
-    } finally { setSavingGrade(null); }
-  }
-
   function responseList() {
     if (!responses.length) return <p className="mt-2 text-xs italic text-gray-400">No responses yet.</p>;
     if (!showResponses) return null;
-    return <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2">{responses.map((response) => <div key={response.id} className="rounded-lg bg-white p-2 text-xs"><div className="flex justify-between gap-2"><span className="font-medium text-gray-600">{response.student_name || `Student ${response.student_id.slice(0, 6)}`}</span><div className="flex items-center gap-1"><input aria-label={`Grade for ${response.student_name || response.student_id}`} defaultValue={Math.round(response.evaluation?.score ?? 0)} type="number" min="0" max="100" onBlur={(event) => void saveGrade(response, event.currentTarget.value)} className="w-14 rounded border border-gray-200 px-1.5 py-1 text-right text-xs" /><span className="text-[10px] text-gray-400">%</span></div></div><p className="mt-1 text-gray-500">{response.answer}</p>{savingGrade === response.id && <p className="mt-1 text-[10px] text-blue-500">Saving…</p>}</div>)}</div>;
+    return <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2">{responses.map((response) => <div key={response.id} className="rounded-lg bg-white p-2 text-xs"><div className="flex justify-between gap-2"><span className="font-medium text-gray-600">{response.student_name || `Student ${response.student_id.slice(0, 6)}`}</span>{typeof response.evaluation?.score === "number" && <span className="font-semibold text-gray-700">{Math.round(response.evaluation.score)}%</span>}</div><p className="mt-1 text-gray-500">{response.answer}</p></div>)}</div>;
   }
 
   function responseHeader() {
