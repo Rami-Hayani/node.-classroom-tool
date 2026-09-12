@@ -20,6 +20,18 @@ const paths = [
   "M1440 885H1250Q1210 885 1210 845V795H1080",
 ];
 
+const diamonds = [
+  [155, 105], [220, 300], [395, 100], [1030, 108], [1280, 220],
+  [1260, 450], [170, 610], [250, 800], [530, 805], [930, 800],
+  [1320, 735], [1210, 885],
+];
+
+const terminals = [
+  [315, 245], [390, 420], [470, 190], [760, 180], [760, 205],
+  [1060, 235], [1125, 380], [1110, 555], [320, 500], [410, 690],
+  [450, 730], [870, 735], [1280, 625], [1080, 795],
+];
+
 export default function StarsBackground() {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-white pointer-events-none" aria-hidden="true">
@@ -47,40 +59,68 @@ export default function StarsBackground() {
               d={path}
               pathLength="100"
               stroke={coral}
-              strokeWidth="3"
+              strokeWidth="2.6"
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity="0.95"
               vectorEffect="non-scaling-stroke"
-              className="node-circuit-path"
-              style={{ animationDuration: `${5 + (index % 4)}s`, animationDelay: `${index * -0.45}s` }}
+              className="node-circuit-highlight"
+              style={{ animationDuration: `${6 + (index % 4)}s`, animationDelay: `${index * -0.45}s` }}
             />
-            <circle r="5" fill={coral} className="node-circuit-runner">
-              <animateMotion
-                dur={`${7 + (index % 3)}s`}
-                repeatCount="indefinite"
-                rotate="auto"
-                begin={`${index * -0.5}s`}
-              >
-                <mpath href={`#${pathId}`} />
-              </animateMotion>
-            </circle>
           </g>
           );
         })}
+        {diamonds.map(([cx, cy]) => (
+          <rect
+            key={`diamond-${cx}-${cy}`}
+            x={cx - 8}
+            y={cy - 8}
+            width="16"
+            height="16"
+            rx="1"
+            fill="white"
+            stroke={coral}
+            strokeWidth="2"
+            transform={`rotate(45 ${cx} ${cy})`}
+            className="node-marker"
+          />
+        ))}
+        {terminals.map(([cx, cy]) => (
+          <rect
+            key={`terminal-${cx}-${cy}`}
+            x={cx - 5}
+            y={cy - 5}
+            width="10"
+            height="10"
+            rx="1"
+            fill={coral}
+            className="node-terminal"
+          />
+        ))}
       </svg>
       <style jsx>{`
-        .node-circuit-path {
-          stroke-dasharray: 14 86;
-          animation: circuit-flow 6s linear infinite;
+        .node-circuit-highlight {
+          stroke-dasharray: 12 88;
+          opacity: 0.1;
+          animation: circuit-flow 6s linear infinite, circuit-fade 2.8s ease-in-out infinite;
         }
-        .node-circuit-runner {
-          opacity: 0.95;
-          filter: drop-shadow(0 0 5px rgba(255, 114, 95, 0.45));
+        .node-marker {
+          opacity: 0.78;
+          animation: marker-fade 3.8s ease-in-out infinite;
+        }
+        .node-terminal {
+          opacity: 0.72;
         }
         @keyframes circuit-flow {
           from { stroke-dashoffset: 100; }
           to { stroke-dashoffset: 0; }
+        }
+        @keyframes circuit-fade {
+          0%, 100% { opacity: 0.12; }
+          45%, 60% { opacity: 0.88; }
+        }
+        @keyframes marker-fade {
+          0%, 100% { opacity: 0.38; }
+          50% { opacity: 0.92; }
         }
       `}</style>
     </div>
