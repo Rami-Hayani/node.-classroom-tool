@@ -1,113 +1,84 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+const coral = "#ff725f";
 
-interface Point { x: number; y: number; }
-interface CircuitPath { points: Point[]; pulseOffset: number; pulseSpeed: number; }
+const paths = [
+  "M0 110H125Q155 110 155 140V250H320",
+  "M0 330H180Q220 330 220 370V455H470",
+  "M90 0V105Q90 140 125 140H390V220H540",
+  "M360 0V75Q360 110 395 110H680V185H820",
+  "M720 0V120Q720 155 755 155H1080V245H1260",
+  "M1120 0V80Q1120 120 1080 120H920V330H760",
+  "M1440 170H1300Q1260 170 1260 210V390H1090",
+  "M1440 430H1250Q1210 430 1210 470V540H980",
+  "M0 650H145Q185 650 185 610V525H410",
+  "M0 820H260Q300 820 300 780V700H570V610H700",
+  "M430 900V820Q430 780 470 780H760V700H900",
+  "M860 900V825Q860 790 895 790H1110V665H1280",
+  "M1440 760H1320Q1280 760 1280 720V620H1130",
+  "M1440 900H1190Q1150 900 1150 860V820H990",
+];
 
-const CORAL = "#ff725f";
-const GREEN = "#0d2d08";
-
-function createPaths(width: number, height: number): CircuitPath[] {
-  const midX = width * 0.5;
-  const midY = height * 0.5;
-  const edgePaths = [
-    [{ x: -20, y: height * 0.16 }, { x: width * 0.16, y: height * 0.16 }, { x: width * 0.22, y: height * 0.22 }, { x: midX - 70, y: height * 0.22 }],
-    [{ x: width * 0.08, y: -20 }, { x: width * 0.08, y: height * 0.18 }, { x: width * 0.16, y: height * 0.25 }, { x: width * 0.16, y: midY - 80 }],
-    [{ x: width * 0.3, y: -20 }, { x: width * 0.3, y: height * 0.12 }, { x: width * 0.37, y: height * 0.2 }, { x: width * 0.37, y: midY - 45 }],
-    [{ x: width * 0.68, y: -20 }, { x: width * 0.68, y: height * 0.12 }, { x: width * 0.62, y: height * 0.2 }, { x: midX + 45, y: height * 0.2 }],
-    [{ x: width * 0.9, y: -20 }, { x: width * 0.9, y: height * 0.19 }, { x: width * 0.82, y: height * 0.26 }, { x: midX + 130, y: height * 0.26 }],
-    [{ x: width + 20, y: height * 0.15 }, { x: width * 0.82, y: height * 0.15 }, { x: width * 0.75, y: height * 0.23 }, { x: midX + 85, y: height * 0.23 }],
-    [{ x: -20, y: height * 0.66 }, { x: width * 0.13, y: height * 0.66 }, { x: width * 0.2, y: height * 0.58 }, { x: midX - 110, y: height * 0.58 }],
-    [{ x: -20, y: height * 0.84 }, { x: width * 0.12, y: height * 0.84 }, { x: width * 0.2, y: height * 0.76 }, { x: midX - 55, y: height * 0.76 }],
-    [{ x: width * 0.08, y: height + 20 }, { x: width * 0.08, y: height * 0.82 }, { x: width * 0.17, y: height * 0.72 }, { x: width * 0.17, y: midY + 70 }],
-    [{ x: width * 0.36, y: height + 20 }, { x: width * 0.36, y: height * 0.78 }, { x: width * 0.43, y: height * 0.7 }, { x: width * 0.43, y: midY + 110 }],
-    [{ x: width * 0.72, y: height + 20 }, { x: width * 0.72, y: height * 0.8 }, { x: width * 0.64, y: height * 0.72 }, { x: midX + 50, y: midY + 70 }],
-    [{ x: width + 20, y: height * 0.78 }, { x: width * 0.84, y: height * 0.78 }, { x: width * 0.77, y: height * 0.7 }, { x: midX + 105, y: height * 0.7 }],
-  ];
-  return edgePaths.map((points, index) => ({ points, pulseOffset: index * 0.8, pulseSpeed: 0.0015 + (index % 4) * 0.00035 }));
-}
-
-function drawRoundedPath(ctx: CanvasRenderingContext2D, points: Point[]) {
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-  for (let index = 1; index < points.length; index += 1) {
-    const point = points[index];
-    const previous = points[index - 1];
-    const next = points[index + 1];
-    if (!next) { ctx.lineTo(point.x, point.y); continue; }
-    const radius = Math.min(28, Math.abs(next.x - previous.x) / 3, Math.abs(next.y - previous.y) / 3);
-    const before = { x: point.x + Math.sign(previous.x - point.x) * radius, y: point.y + Math.sign(previous.y - point.y) * radius };
-    const after = { x: point.x + Math.sign(next.x - point.x) * radius, y: point.y + Math.sign(next.y - point.y) * radius };
-    ctx.lineTo(before.x, before.y);
-    ctx.quadraticCurveTo(point.x, point.y, after.x, after.y);
-  }
-}
+const junctions = [
+  [155, 110], [220, 330], [90, 140], [360, 110], [720, 155], [1120, 120],
+  [1260, 170], [1210, 430], [185, 650], [300, 820], [430, 780], [860, 790],
+  [1280, 760], [1150, 820], [540, 220], [980, 540],
+];
 
 export default function StarsBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-
-    let width = 0;
-    let height = 0;
-    let paths: CircuitPath[] = [];
-    let animationFrame = 0;
-
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      width = rect.width;
-      height = rect.height;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paths = createPaths(width, height);
-    };
-
-    const animate = (time: number) => {
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = GREEN;
-      ctx.fillRect(0, 0, width, height);
-
-      paths.forEach((path) => {
-        drawRoundedPath(ctx, path.points);
-        ctx.strokeStyle = "rgba(255, 114, 95, 0.8)";
-        ctx.lineWidth = 1.25;
-        ctx.stroke();
-
-        const phase = time * path.pulseSpeed + path.pulseOffset;
-        const pulseIndex = Math.floor(phase % (path.points.length - 1));
-        const start = path.points[pulseIndex];
-        const end = path.points[pulseIndex + 1];
-        const progress = phase % 1;
-        ctx.fillStyle = CORAL;
-        ctx.beginPath();
-        ctx.arc(start.x + (end.x - start.x) * progress, start.y + (end.y - start.y) * progress, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      paths.flatMap((path) => path.points.slice(1, -1)).forEach((marker, index) => {
-        ctx.fillStyle = CORAL;
-        ctx.beginPath();
-        ctx.arc(marker.x, marker.y, 2.5 + Math.sin(time * 0.002 + index) * 0.7, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      animationFrame = requestAnimationFrame(animate);
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-    animationFrame = requestAnimationFrame(animate);
-    return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(animationFrame);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="fixed inset-0 z-0 pointer-events-none" aria-hidden="true" />;
+  return (
+    <div className="fixed inset-0 z-0 overflow-hidden bg-white pointer-events-none" aria-hidden="true">
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="none"
+        fill="none"
+      >
+        {paths.map((path, index) => (
+          <g key={path}>
+            <path d={path} stroke={coral} strokeWidth="2" opacity="0.28" vectorEffect="non-scaling-stroke" />
+            <path
+              d={path}
+              pathLength="1"
+              stroke={coral}
+              strokeWidth="2.5"
+              vectorEffect="non-scaling-stroke"
+              className="node-circuit-path"
+              style={{ animationDelay: `${index * -0.7}s` }}
+            />
+          </g>
+        ))}
+        {junctions.map(([cx, cy], index) => (
+          <circle
+            key={`${cx}-${cy}`}
+            cx={cx}
+            cy={cy}
+            r="7"
+            fill={coral}
+            className="node-circuit-dot"
+            style={{ animationDelay: `${index * -0.35}s` }}
+          />
+        ))}
+      </svg>
+      <style jsx>{`
+        .node-circuit-path {
+          stroke-dasharray: 0.025 0.975;
+          animation: circuit-flow 5s linear infinite;
+        }
+        .node-circuit-dot {
+          transform-box: fill-box;
+          transform-origin: center;
+          animation: circuit-pulse 2.6s ease-in-out infinite;
+        }
+        @keyframes circuit-flow {
+          from { stroke-dashoffset: 1; }
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes circuit-pulse {
+          0%, 100% { opacity: 0.45; transform: scale(0.8); }
+          50% { opacity: 1; transform: scale(1.15); }
+        }
+      `}</style>
+    </div>
+  );
 }

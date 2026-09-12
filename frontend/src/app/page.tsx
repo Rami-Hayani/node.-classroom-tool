@@ -172,12 +172,12 @@ export default function LandingPage() {
           >
             node
           </h1>
-          <p className="text-lg sm:text-2xl text-white/85 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
+          <p className="text-lg sm:text-2xl text-gray-600 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
             Know what your class understands and what to teach next.
           </p>
           <button
             onClick={() => setShowAuth(true)}
-            className="px-12 py-4 rounded-full border border-[#ff725f]/80 text-white font-medium text-base hover:bg-[#ff725f] hover:text-[#0d2d08] hover:border-[#ff725f] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
+            className="px-12 py-4 rounded-full border border-[#ff725f]/80 text-gray-700 font-medium text-base hover:bg-[#ff725f] hover:text-white hover:border-[#ff725f] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
           >
             Get Started
           </button>
