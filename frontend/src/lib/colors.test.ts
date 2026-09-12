@@ -10,20 +10,22 @@ describe("confidenceToColor", () => {
     expect(confidenceToColor(0.01)).toBe("red");
   });
 
-  it("returns red for 0.39", () => {
-    expect(confidenceToColor(0.39)).toBe("red");
+  it("returns red below 25%", () => {
+    expect(confidenceToColor(0.24)).toBe("red");
   });
 
-  it("returns yellow for 0.4", () => {
-    expect(confidenceToColor(0.4)).toBe("yellow");
+  it("returns orange from 25% to 49%", () => {
+    expect(confidenceToColor(0.25)).toBe("orange");
+    expect(confidenceToColor(0.49)).toBe("orange");
   });
 
-  it("returns yellow for 0.69", () => {
-    expect(confidenceToColor(0.69)).toBe("yellow");
+  it("returns yellow from 50% to 74%", () => {
+    expect(confidenceToColor(0.5)).toBe("yellow");
+    expect(confidenceToColor(0.74)).toBe("yellow");
   });
 
-  it("returns green for 0.7", () => {
-    expect(confidenceToColor(0.7)).toBe("green");
+  it("returns green at 75% or higher", () => {
+    expect(confidenceToColor(0.75)).toBe("green");
   });
 
   it("returns green for 1.0", () => {

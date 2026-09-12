@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { CheckCircle2, AlertCircle, GraduationCap, Sparkles } from "lucide-react";
 import { confidenceToNodeBorder } from "@/lib/colors";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface WeakConcept {
   id: string;
@@ -85,7 +86,7 @@ export default function LectureSummaryPanel({
                   className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 border border-gray-200 w-full text-left hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <AlertCircle size={14} style={{ color: borderColor }} className="shrink-0" />
-                  <span className="text-sm text-gray-700 flex-1">{concept.label}</span>
+                  <span className="text-sm text-gray-700 flex-1">{formatConceptLabel(concept.label)}</span>
                   <span className="text-xs font-mono" style={{ color: borderColor }}>
                     {pct}%
                   </span>

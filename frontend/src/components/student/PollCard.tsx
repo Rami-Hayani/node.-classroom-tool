@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { nextApi } from "@/lib/api";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface PollCardProps {
   pollId: string;
@@ -44,7 +45,7 @@ export default function PollCard({ pollId, question, conceptLabel, studentId }: 
           <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
           <h3 className="text-sm font-semibold text-slate-800">Poll Question</h3>
           <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100 rounded-full">
-            {conceptLabel}
+            {formatConceptLabel(conceptLabel)}
           </span>
         </div>
       </div>

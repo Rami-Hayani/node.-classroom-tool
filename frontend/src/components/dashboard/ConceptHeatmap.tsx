@@ -10,7 +10,7 @@ export interface HeatmapConcept {
   id: string;
   label: string;
   category?: string;
-  distribution: { green: number; yellow: number; red: number; gray: number };
+  distribution: { green: number; yellow: number; orange: number; red: number; gray: number };
   avg_confidence: number;
   struggling_count?: number;
   mastered_count?: number;
@@ -37,16 +37,16 @@ function SummaryMetrics({
     concepts.length > 0
       ? concepts.reduce((sum, c) => sum + c.avg_confidence, 0) / concepts.length
       : 0;
-  const masteredCount = concepts.filter((c) => c.avg_confidence >= 0.7).length;
+  const masteredCount = concepts.filter((c) => c.avg_confidence >= 0.75).length;
   const strugglingCount = concepts.filter(
-    (c) => c.avg_confidence > 0 && c.avg_confidence < 0.4,
+    (c) => c.avg_confidence > 0 && c.avg_confidence < 0.5,
   ).length;
   const pct = Math.round(avgConfidence * 100);
 
   const ringColor =
-    avgConfidence >= 0.7
+    avgConfidence >= 0.75
       ? "#22c55e"
-      : avgConfidence >= 0.4
+      : avgConfidence >= 0.5
         ? "#eab308"
         : avgConfidence > 0
           ? "#ef4444"

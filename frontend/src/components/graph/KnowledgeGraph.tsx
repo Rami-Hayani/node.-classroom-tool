@@ -17,10 +17,11 @@ export interface GraphNode {
   category?: string;
   difficulty?: number;
   avgConfidence?: number;
-  distribution?: { green: number; yellow: number; red: number; gray: number };
+  distribution?: { green: number; yellow: number; orange: number; red: number; gray: number };
   strugglingCount?: number;
   masteredCount?: number;
   splitClass?: boolean;
+  syllabus_order?: number;
 }
 
 export interface GraphEdge {
@@ -84,7 +85,6 @@ export default function KnowledgeGraph({
   highlightedNodeIds,
   onNodeClick,
   weakPrerequisiteIds,
-  splitConceptIds,
   mode = "student",
 }: KnowledgeGraphProps) {
   const [containerRef, bounds] = useMeasure();
@@ -122,11 +122,15 @@ export default function KnowledgeGraph({
   useEffect(() => {
     if (nodes.length === 0) return;
 
-    const nodesCopy: SimNode[] = nodes.map((n) => {
+    const nodesCopy: SimNode[] = nodes.map((n, index) => {
       const cached = positionCacheRef.current.get(n.id);
       return {
         ...n,
-        relevance: (n.difficulty || 3) / 5,
+        index,
+        // Topic information density controls a small size variation. The
+        // syllabus order controls vertical placement; size never encodes
+        // mastery.
+        relevance: Math.min(1, ((n.description?.length || 0) / 240) * 0.7 + ((n.difficulty || 3) / 5) * 0.3),
         ...(cached ? { x: cached.x, y: cached.y } : {}),
       };
     });
@@ -270,7 +274,7 @@ export default function KnowledgeGraph({
     };
   }, [bounds.width, bounds.height, simNodes.length]);
 
-  // Rank-based reveal: sort nodes by x, assign evenly-spaced thresholds
+  // Rank-based reveal follows the natural left-to-right graph layout.
   const revealRank = useMemo(() => {
     const positioned = simNodes.filter((n) => n.x != null);
     if (positioned.length === 0) return new Map<string, number>();
@@ -345,14 +349,28 @@ export default function KnowledgeGraph({
       if (!hasDraggedPastThreshold.current) {
         // Pointer barely moved — treat as a click
         const node = simNodesRef.current.find((n) => n.id === draggingNodeId.current);
-        if (node) onNodeClickRef.current?.(node);
+        if (node) {
+          // Focus the selected concept without changing the cached graph layout.
+          // The selected node lands near the center and occupies a readable portion of the map.
+          const targetZoom = 1.35;
+          if (bounds.width && bounds.height && node.x != null && node.y != null) {
+            const centerX = bounds.width / 2;
+            const centerY = bounds.height / 2;
+            setZoom(targetZoom);
+            setPan({
+              x: centerX - node.x * targetZoom - centerX * (1 - targetZoom),
+              y: centerY - node.y * targetZoom - centerY * (1 - targetZoom),
+            });
+          }
+          onNodeClickRef.current?.(node);
+        }
       }
       draggingNodeId.current = null;
       hasDraggedPastThreshold.current = false;
       return;
     }
     isPanning.current = false;
-  }, []);
+  }, [bounds.width, bounds.height]);
 
   const handleReset = useCallback(() => {
     setZoom(0.75);
@@ -415,7 +433,7 @@ export default function KnowledgeGraph({
         {/* Zoom/pan transform wrapper */}
         <div
           className="absolute inset-0 origin-center"
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transition: "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)" }}
         >
         {/* SVG layer for links */}
         <svg className="absolute inset-0 pointer-events-none" width={bounds.width || "100%"} height={bounds.height || "100%"} style={{ overflow: "visible" }}>
@@ -517,15 +535,17 @@ export default function KnowledgeGraph({
           {simNodes.map((node) => {
             if (node.x === undefined || node.y === undefined) return null;
             const displayLabel = formatConceptLabel(node.label);
-            const size = mode === "professor" ? 44 : getNodeRadius(displayLabel, node.relevance || 0.6);
-            const nodeConfidence = mode === "professor" ? (node.avgConfidence ?? 0) : (node.confidence ?? 0);
+            // Both student and professor maps use the same visual node sizing.
+            const size = getNodeRadius(displayLabel, node.relevance || 0.6);
+            // Student and professor nodes share the exact same visual state.
+            // Professor data uses avgConfidence; student data uses confidence.
+            const nodeConfidence = node.avgConfidence ?? node.confidence ?? 0;
             const borderColor = confidenceToNodeBorder(nodeConfidence);
             const isInSet = activeSet.has(node.id);
             const hasSelection = activeSet.size > 0;
             const isDimmed = hasSelection && !isInSet;
             const isActive = node.id === activeConceptId;
             const isWeakPrerequisite = weakPrerequisiteIds?.has(node.id);
-            const isSplit = splitConceptIds?.has(node.id) || node.splitClass;
             const glowColor = isActive ? COLOR_HEX.active : borderColor;
 
             // 4-bucket fill matching heatmap: orange / yellow / green / gray
@@ -578,6 +598,7 @@ export default function KnowledgeGraph({
                     : isActive
                       ? `0 0 20px ${COLOR_HEX.active}35, 0 4px 12px ${COLOR_HEX.active}15`
                       : `0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06)`,
+                  filter: isInSet || isActive ? "saturate(1.1)" : undefined,
                 }}
               >
                 {/* Glossy top highlight */}
@@ -596,11 +617,10 @@ export default function KnowledgeGraph({
                 {/* Text label */}
                 <div className="absolute inset-0 flex items-center justify-center p-1.5 text-center pointer-events-none overflow-hidden">
                   <p
-                    className={`font-[family-name:var(--font-comfortaa)] font-semibold leading-[1.15] transition-colors ${
-                      isInSet || isActive ? "text-gray-900" : "text-gray-700"
-                    }`}
+                    className="font-semibold leading-[1.15] text-black transition-colors"
                     style={{
                       fontSize: `${NODE_FONT_SIZE}px`,
+                      fontFamily: "Arial, sans-serif",
                       wordBreak: "keep-all",
                       overflowWrap: "normal",
                     }}
@@ -608,19 +628,6 @@ export default function KnowledgeGraph({
                     {displayLabel}
                   </p>
                 </div>
-                {mode === "professor" && (
-                  <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-gray-500">
-                    {Math.round(nodeConfidence * 100)}%
-                    {typeof node.strugglingCount === "number" && node.strugglingCount > 0 && (
-                      <span className="ml-1 text-red-500">{node.strugglingCount} struggling</span>
-                    )}
-                  </div>
-                )}
-                {mode === "professor" && isSplit && (
-                  <span className="absolute -top-2 -right-2 rounded-full bg-violet-100 px-1.5 py-0.5 text-[8px] font-bold text-violet-700 shadow-sm">
-                    split
-                  </span>
-                )}
               </motion.div>
             );
           })}
@@ -654,33 +661,33 @@ export default function KnowledgeGraph({
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-4 left-4 p-4 rounded-xl bg-white/70 border border-gray-200/80 backdrop-blur-md">
-        <div className="flex flex-col gap-3 text-xs text-gray-400 font-medium">
+      <div className="absolute bottom-3 left-3 z-30 p-3 rounded-lg bg-white/90 border border-gray-200/80 backdrop-blur-md">
+        <div className="flex flex-col gap-2 text-[10px] text-gray-600 font-medium">
           <div className="flex items-center gap-3">
             <svg width="32" height="6"><line x1="0" y1="3" x2="26" y2="3" stroke="#64748b" strokeWidth="1.5" /><polygon points="26,0 32,3 26,6" fill="#64748b" /></svg>
-            <span>Prerequisite</span>
+            <span>{mode === "student" ? "Subtopic" : "Prerequisite"}</span>
           </div>
           <div className="h-px bg-gray-200 my-1" />
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#4ade80" }} />
-              <span>Mastered</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.green }} />
+              <span>Mastered · 75–100%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#a3e635" }} />
-              <span>On Track</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.yellow }} />
+              <span>Developing · 50–74%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#facc15" }} />
-              <span>Building</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.orange }} />
+              <span>Needs support · 25–49%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#fb923c" }} />
-              <span>Developing</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.red }} />
+              <span>Struggling · 1–24%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: "#94a3b8" }} />
-              <span>Not Started</span>
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLOR_HEX.gray }} />
+              <span>Not assessed · no evidence</span>
             </div>
           </div>
         </div>

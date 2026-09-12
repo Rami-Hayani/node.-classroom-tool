@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface ConceptOption {
   id: string;
@@ -25,12 +26,15 @@ export default function ConceptSelector({
   onFindPartner,
   loading
 }: Props) {
-  // Sort by confidence (weakest first) and group by mastery level
+  // Put evidence-backed red concepts first. Zero-percent concepts are not
+  // recommendations because they have not been assessed yet.
   const sorted = [...concepts].sort((a, b) => a.confidence - b.confidence);
 
-  const needHelp = sorted.filter(c => c.confidence < 0.4);
-  const learning = sorted.filter(c => c.confidence >= 0.4 && c.confidence < 0.7);
-  const comfortable = sorted.filter(c => c.confidence >= 0.7);
+  const needHelp = sorted.filter(c => c.confidence > 0 && c.confidence < 0.25);
+  const developing = sorted.filter(c => c.confidence >= 0.25 && c.confidence < 0.5);
+  const learning = sorted.filter(c => c.confidence >= 0.5 && c.confidence < 0.75);
+  const comfortable = sorted.filter(c => c.confidence >= 0.75);
+  const notStarted = sorted.filter(c => c.confidence === 0);
 
   const toggleConcept = (id: string) => {
     const newSet = new Set(selectedConcepts);
@@ -65,7 +69,7 @@ export default function ConceptSelector({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-3 mb-1.5">
               <span className="text-sm font-medium text-gray-700">
-                {concept.label}
+                {formatConceptLabel(concept.label)}
               </span>
               <span className="text-xs text-gray-400 font-mono tabular-nums flex-shrink-0">
                 {percentage}%
@@ -76,7 +80,7 @@ export default function ConceptSelector({
                 className="h-full rounded-full transition-all duration-300"
                 style={{
                   width: `${percentage}%`,
-                  backgroundColor: percentage < 40 ? '#ef4444' : percentage < 70 ? '#eab308' : '#22c55e'
+                  backgroundColor: percentage === 0 ? '#94a3b8' : percentage < 25 ? '#ef4444' : percentage < 50 ? '#f97316' : percentage < 75 ? '#eab308' : '#22c55e'
                 }}
               />
             </div>
@@ -112,17 +116,23 @@ export default function ConceptSelector({
           </div>
         )}
 
+        {developing.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="h-2 w-2 rounded-full bg-orange-500" />
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Developing</p>
+            </div>
+            <div className="space-y-2">{developing.map(renderConcept)}</div>
+          </div>
+        )}
+
         {learning.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2.5">
               <div className="h-2 w-2 rounded-full bg-yellow-400" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                Still learning
-              </p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Still learning</p>
             </div>
-            <div className="space-y-2">
-              {learning.map(renderConcept)}
-            </div>
+            <div className="space-y-2">{learning.map(renderConcept)}</div>
           </div>
         )}
 
@@ -137,6 +147,16 @@ export default function ConceptSelector({
             <div className="space-y-2">
               {comfortable.map(renderConcept)}
             </div>
+          </div>
+        )}
+
+        {notStarted.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="h-2 w-2 rounded-full bg-slate-400" />
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Not assessed yet</p>
+            </div>
+            <div className="space-y-2">{notStarted.map(renderConcept)}</div>
           </div>
         )}
       </div>

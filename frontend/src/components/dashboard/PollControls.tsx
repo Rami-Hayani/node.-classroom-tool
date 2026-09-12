@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { COLOR_HEX } from "@/lib/colors";
-import { nextApi } from "@/lib/api";
+import { flaskApi, nextApi } from "@/lib/api";
 import { useSocketEvent } from "@/lib/socket";
 import { formatConceptLabel } from "@/lib/concepts";
 
@@ -14,18 +14,20 @@ interface PollState {
   results: { green: number; yellow: number; orange: number; red: number } | null;
   totalResponses: number;
 }
+interface PollResponse { id: string; student_id: string; student_name?: string; answer: string; evaluation?: { score?: number; eval_result?: string; feedback?: string } }
 
 interface PollControlsProps {
   lectureId: string | null;
   concepts: { id: string; label: string }[];
   activeConceptId: string | null;
+  selectedNodeId?: string | null;
   connectedStudentCount?: number;
   followUpRequest?: { conceptId: string; nonce: number } | null;
   onPollActivated?: (poll: { pollId: string; conceptId: string; conceptLabel: string }) => void;
   onPollClosed?: (poll: { pollId: string; conceptId: string; conceptLabel: string; misconceptionSummary?: string }) => void;
 }
 
-export default function PollControls({ lectureId, concepts, activeConceptId, connectedStudentCount = 0, followUpRequest, onPollActivated, onPollClosed }: PollControlsProps) {
+export default function PollControls({ lectureId, concepts, activeConceptId, selectedNodeId, connectedStudentCount = 0, followUpRequest, onPollActivated, onPollClosed }: PollControlsProps) {
   const [poll, setPoll] = useState<PollState>({
     pollId: null,
     question: null,
@@ -37,14 +39,20 @@ export default function PollControls({ lectureId, concepts, activeConceptId, con
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedConceptId, setSelectedConceptId] = useState("");
+  const [responses, setResponses] = useState<PollResponse[]>([]);
+  const [responseRefresh, setResponseRefresh] = useState(0);
+  const [showResponses, setShowResponses] = useState(true);
+  const [savingGrade, setSavingGrade] = useState<string | null>(null);
 
   useEffect(() => {
-    if (activeConceptId && concepts.some((c) => c.id === activeConceptId)) {
+    if (selectedNodeId && concepts.some((c) => c.id === selectedNodeId)) {
+      setSelectedConceptId(selectedNodeId);
+    } else if (activeConceptId && concepts.some((c) => c.id === activeConceptId)) {
       setSelectedConceptId(activeConceptId);
     } else if (!selectedConceptId && concepts.length > 0) {
       setSelectedConceptId(concepts[0].id);
     }
-  }, [activeConceptId, concepts, selectedConceptId]);
+  }, [activeConceptId, selectedNodeId, concepts, selectedConceptId]);
 
   useEffect(() => {
     if (!followUpRequest || !lectureId || poll.status !== "idle") return;
@@ -58,7 +66,38 @@ export default function PollControls({ lectureId, concepts, activeConceptId, con
     setPoll((current) => current.pollId === data.pollId
       ? { ...current, totalResponses: current.totalResponses + 1 }
       : current);
+    setResponseRefresh((value) => value + 1);
   });
+
+  useEffect(() => {
+    if (!poll.pollId || (poll.status !== "active" && poll.status !== "closed")) {
+      setResponses([]);
+      return;
+    }
+    flaskApi.get(`/api/polls/${poll.pollId}/responses`)
+      .then((data) => setResponses((data as PollResponse[]) || []))
+      .catch(() => setResponses([]));
+  }, [poll.pollId, poll.status, responseRefresh]);
+
+  async function saveGrade(response: PollResponse, value: string) {
+    const score = Number(value);
+    if (!Number.isFinite(score) || score < 0 || score > 100) return;
+    setSavingGrade(response.id);
+    try {
+      await flaskApi.put(`/api/polls/${poll.pollId}/responses/${response.id}/grade`, { score });
+      setResponses((current) => current.map((item) => item.id === response.id ? { ...item, evaluation: { ...(item.evaluation || {}), score } } : item));
+    } finally { setSavingGrade(null); }
+  }
+
+  function responseList() {
+    if (!responses.length) return <p className="mt-2 text-xs italic text-gray-400">No responses yet.</p>;
+    if (!showResponses) return null;
+    return <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2">{responses.map((response) => <div key={response.id} className="rounded-lg bg-white p-2 text-xs"><div className="flex justify-between gap-2"><span className="font-medium text-gray-600">{response.student_name || `Student ${response.student_id.slice(0, 6)}`}</span><div className="flex items-center gap-1"><input aria-label={`Grade for ${response.student_name || response.student_id}`} defaultValue={Math.round(response.evaluation?.score ?? 0)} type="number" min="0" max="100" onBlur={(event) => void saveGrade(response, event.currentTarget.value)} className="w-14 rounded border border-gray-200 px-1.5 py-1 text-right text-xs" /><span className="text-[10px] text-gray-400">%</span></div></div><p className="mt-1 text-gray-500">{response.answer}</p>{savingGrade === response.id && <p className="mt-1 text-[10px] text-blue-500">Saving…</p>}</div>)}</div>;
+  }
+
+  function responseHeader() {
+    return <div className="mt-3 flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Individual responses</p><button type="button" role="switch" aria-checked={showResponses} onClick={() => setShowResponses((visible) => !visible)} className={`relative h-5 w-9 rounded-full transition-colors ${showResponses ? "bg-gray-800" : "bg-gray-200"}`} title={showResponses ? "Hide individual responses" : "Show individual responses"}><span className={`absolute left-1 top-1 h-3 w-3 rounded-full bg-white shadow transition-transform ${showResponses ? "translate-x-4" : "translate-x-0"}`} /></button></div>;
+  }
 
   async function generateForConcept(conceptId: string) {
     if (!lectureId) return;
@@ -198,6 +237,7 @@ export default function PollControls({ lectureId, concepts, activeConceptId, con
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs text-gray-500">Responses: {poll.totalResponses} / {connectedStudentCount}</span>
             </div>
+            {responseHeader()}{responseList()}
             <button
               onClick={handleClose}
               className="px-4 py-2 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-all duration-200"
@@ -226,6 +266,7 @@ export default function PollControls({ lectureId, concepts, activeConceptId, con
                 );
               })}
             </div>
+            {responseHeader()}{responseList()}
             <button
               onClick={handleReset}
               className="px-4 py-2 rounded-xl text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all duration-200"

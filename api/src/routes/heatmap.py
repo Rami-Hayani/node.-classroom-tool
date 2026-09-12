@@ -3,10 +3,32 @@ from flask import request, jsonify, Blueprint
 from ..db import supabase
 from ..middleware.auth import optional_auth
 from ..cache import cache_get, cache_set
-from ..services.assessment import score_from_evaluation, score_to_color
 
 load_dotenv()
 heatmap = Blueprint("heatmap", __name__)
+
+
+def _response_score(evaluation):
+    evaluation = evaluation or {}
+    score = evaluation.get('score')
+    if isinstance(score, (int, float)):
+        return max(0.0, min(100.0, float(score)))
+    return {'correct': 100.0, 'partial': 60.0, 'wrong': 10.0}.get(
+        evaluation.get('eval_result'), 0.0
+    )
+
+
+def confidence_to_color(confidence):
+    if confidence == 0.0:
+        return "gray"
+    elif confidence < 0.25:
+        return "red"
+    elif confidence < 0.5:
+        return "orange"
+    elif confidence < 0.75:
+        return "yellow"
+    else:
+        return "green"
 
 
 @heatmap.route('/api/courses/<course_id>/heatmap', methods=['GET'])
@@ -29,37 +51,46 @@ def get_heatmap(course_id):
     if not concepts:
         return jsonify({"concepts": [], "total_students": total_students}), 200
 
+    # Compute concept mastery from graded poll evidence. This intentionally
+    # ignores legacy attendance/exposure values in student_mastery.
     concept_ids = [c['id'] for c in concepts]
-    lecture_ids = [l['id'] for l in supabase.table('lecture_sessions').select('id').eq('course_id', course_id).execute().data]
-    polls = supabase.table('poll_questions').select('id, concept_id').in_('lecture_id', lecture_ids).in_('concept_id', concept_ids).execute().data if lecture_ids else []
-    poll_ids = [p['id'] for p in polls]
-    poll_concepts = {p['id']: p.get('concept_id') for p in polls}
-    responses = supabase.table('poll_responses').select('question_id, student_id, evaluation').in_('question_id', poll_ids).execute().data if poll_ids else []
+    questions = supabase.table('poll_questions').select('id, concept_id').in_('concept_id', concept_ids).execute().data
+    question_concepts = {question['id']: question['concept_id'] for question in questions}
+    all_responses = supabase.table('poll_responses').select('question_id, student_id, evaluation').in_(
+        'question_id', list(question_concepts)
+    ).limit(10000).execute().data if question_concepts else []
+
+    # Average each student's graded responses for each concept.
     scores_by_concept_student = {}
-    for response in responses:
-        concept_id = poll_concepts.get(response['question_id'])
-        score = score_from_evaluation(response.get('evaluation'))
-        if concept_id and score is not None:
-            scores_by_concept_student.setdefault(concept_id, {}).setdefault(response['student_id'], []).append(score)
+    for response in all_responses:
+        concept_id = question_concepts.get(response['question_id'])
+        if concept_id:
+            key = (concept_id, response['student_id'])
+            scores_by_concept_student.setdefault(key, []).append(_response_score(response.get('evaluation')))
 
     heatmap_data = []
     for concept in concepts:
         concept_id = concept['id']
-        score_map = scores_by_concept_student.get(concept_id, {})
-        scores = [sum(values) / len(values) for values in score_map.values()]
+        confidence_map = {}
+        for (cid, student_id), scores in scores_by_concept_student.items():
+            if cid == concept_id:
+                confidence_map[student_id] = sum(scores) / len(scores) / 100.0
+        confidences = [confidence_map.get(student['id'], 0.0) for student in students]
 
         # Count colors
         distribution = {"green": 0, "yellow": 0, "orange": 0, "red": 0, "gray": 0}
-        for student in students:
-            student_scores = score_map.get(student['id'])
-            score = sum(student_scores) / len(student_scores) if student_scores else None
-            distribution[score_to_color(score)] += 1
-
-        avg_score = sum(scores) / len(scores) if scores else None
+        total_confidence = 0
+        for conf in confidences:
+            distribution[confidence_to_color(conf)] += 1
+            total_confidence += conf
 
         assessed_count = distribution['green'] + distribution['yellow'] + distribution['orange'] + distribution['red']
+        # Class average is based on students with at least one graded
+        # response for this concept; unassessed students remain gray and do
+        # not pull the concept percentage toward zero.
+        avg_confidence = total_confidence / assessed_count if assessed_count else 0.0
         mastered_count = distribution['green']
-        struggling_count = distribution['red']
+        struggling_count = distribution['red'] + distribution['orange']
         split_class = (
             assessed_count >= 6
             and struggling_count >= 3
@@ -73,9 +104,7 @@ def get_heatmap(course_id):
             "label": concept['label'],
             "category": concept.get('category', ''),
             "distribution": distribution,
-            "avg_confidence": round(avg_score / 100, 3) if avg_score is not None else 0.0,
-            "assessment_average": round(avg_score, 1) if avg_score is not None else None,
-            "assessment_count": len(scores),
+            "avg_confidence": round(avg_confidence, 2),
             "struggling_count": struggling_count,
             "mastered_count": mastered_count,
             "assessed_count": assessed_count,

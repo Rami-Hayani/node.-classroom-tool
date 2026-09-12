@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { flaskPost } from "@/lib/flask";
 import { detectConcepts } from "@/lib/prompts/concept-detection";
 import { getConceptMap } from "@/lib/concept-cache";
-import { emitToLectureRoom, getStudentsInLecture } from "@server/socket-helpers";
+import { emitToLectureRoom } from "@server/socket-helpers";
 
 interface TranscriptChunk {
   id: string;
@@ -44,20 +44,7 @@ export async function POST(
     }
   );
 
-  // Step 4: Fire-and-forget attendance-boost (non-blocking — no need to await)
-  if (detectedConcepts.length > 0) {
-    const studentIds = getStudentsInLecture(lectureId);
-    if (studentIds.length > 0) {
-      flaskPost("/api/mastery/attendance-boost", {
-        concept_ids: detectedConcepts.map((c) => c.id),
-        student_ids: studentIds,
-      }).catch((err) =>
-        console.warn("attendance-boost failed (non-critical):", err)
-      );
-    }
-  }
-
-  // Step 5: Emit Socket.IO events (may fail if called outside Express server context)
+  // Step 4: Emit Socket.IO events (may fail if called outside Express server context)
   try {
     emitToLectureRoom(lectureId, "transcript:chunk", {
       text,

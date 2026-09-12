@@ -9,6 +9,8 @@ import { useAuth } from "@/lib/auth-context";
 import ConceptSelector from "@/components/study-group/ConceptSelector";
 import WaitingCard from "@/components/study-group/WaitingCard";
 import MatchedCard from "@/components/study-group/MatchedCard";
+import StudentTopNav from "@/components/student/StudentTopNav";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface ConceptOption {
   id: string;
@@ -256,12 +258,15 @@ export default function StudyGroupPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#fafafa]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center animate-pulse">
-            <Users className="w-6 h-6 text-white" />
+      <div className="flex h-screen flex-col bg-[#fafafa]">
+        <StudentTopNav studentId={studentId} />
+        <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-800 animate-pulse">
+              <Users className="h-6 w-6 text-white" />
+            </div>
+            <p className="text-sm text-gray-400">Loading...</p>
           </div>
-          <p className="text-sm text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -269,8 +274,9 @@ export default function StudyGroupPage() {
 
   return (
     <div className="flex h-screen flex-col bg-[#fafafa] text-gray-800 relative overflow-hidden font-sans">
+      <StudentTopNav studentId={studentId} />
       {/* Header */}
-      <header className="relative z-10 h-14 shrink-0 flex items-center justify-between px-6 border-b border-gray-200/80 bg-white/80 backdrop-blur-sm">
+      <header className="hidden">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.back()}
@@ -279,7 +285,7 @@ export default function StudyGroupPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            node
+            Node
           </h1>
           <span className="text-xs text-gray-400 ml-1">Study Groups</span>
         </div>
@@ -317,7 +323,7 @@ export default function StudyGroupPage() {
           {status === 'waiting' && (
             <WaitingCard
               conceptLabels={Array.from(selectedConcepts).map(id =>
-                concepts.find(c => c.id === id)?.label || ""
+                formatConceptLabel(concepts.find(c => c.id === id)?.label || "")
               ).filter(Boolean)}
               onCancel={handleCancel}
             />

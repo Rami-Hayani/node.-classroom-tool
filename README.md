@@ -1,4 +1,4 @@
-# node
+# Node
 
 **Your personal knowledge graph in every lecture.**
 

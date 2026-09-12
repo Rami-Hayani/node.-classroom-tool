@@ -70,7 +70,8 @@ Evaluate whether the student's answer demonstrates understanding of the concept.
 - "correct" if they show clear understanding (even if wording differs)
 - "partial" if they show some understanding but miss key points
 - "wrong" if they misunderstand or give an incorrect answer
-- "score" as an integer percentage from 0 to 100. Use 100 for fully correct, 50 for partly correct, and 0 for completely wrong.
+
+Also assign a numeric score from 0 to 100 based on the quality of the demonstrated understanding.
 
 Also provide brief feedback (1-2 sentences) for the student.
 
@@ -84,11 +85,9 @@ Return ONLY valid JSON (no markdown):
     }
 
     const parsed = JSON.parse(cleaned);
-    const rawScore = Number(parsed.score);
-    const fallbackScore = parsed.eval_result === "correct" ? 100 : parsed.eval_result === "wrong" ? 0 : 50;
     return {
       eval_result: parsed.eval_result || "partial",
-      score: Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : fallbackScore,
+      score: Math.max(0, Math.min(100, Number(parsed.score ?? (parsed.eval_result === "correct" ? 100 : parsed.eval_result === "wrong" ? 10 : 60)))),
       feedback: parsed.feedback || "Answer recorded.",
       reasoning: parsed.reasoning || ""
     };
@@ -96,7 +95,7 @@ Return ONLY valid JSON (no markdown):
     console.error("[poll-respond] Evaluation error:", err);
     return {
       eval_result: "partial",
-      score: 50,
+      score: 60,
       feedback: "Your answer has been recorded.",
       reasoning: "Evaluation error"
     };
@@ -181,8 +180,10 @@ router.post("/api/polls/:pollId/respond", json(), async (req, res) => {
     console.log(`[poll-respond] Success - emitted updates to student and professor`);
 
     res.json({
+      responseId: (storedResponse as { id?: string }).id,
       evaluation: {
         eval_result: evaluation.eval_result,
+        score: evaluation.score,
         feedback: evaluation.feedback,
         reasoning: evaluation.reasoning,
       },

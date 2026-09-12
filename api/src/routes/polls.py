@@ -134,6 +134,14 @@ def get_poll_responses(poll_id):
             'id, question_id, student_id, answer, evaluation, answered_at'
         ).eq('question_id', poll_id).execute()
 
+        student_ids = [row.get('student_id') for row in result.data if row.get('student_id')]
+        names = {}
+        if student_ids:
+            students = supabase.table('students').select('id, name, email').in_('id', student_ids).execute().data
+            names = {row['id']: row.get('name') or row.get('email') or 'Student' for row in students}
+        for row in result.data:
+            row['student_name'] = names.get(row.get('student_id'), 'Student')
+
         print(f"[get_poll_responses] Found {len(result.data)} responses")
         return jsonify(result.data), 200
     except Exception as e:
@@ -141,6 +149,95 @@ def get_poll_responses(poll_id):
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Failed to fetch responses', 'details': str(e)}), 500
+
+
+def _score_from_evaluation(evaluation):
+    evaluation = evaluation or {}
+    score = evaluation.get('score')
+    if isinstance(score, (int, float)):
+        return max(0.0, min(100.0, float(score)))
+    return {'correct': 100.0, 'partial': 60.0, 'wrong': 10.0}.get(evaluation.get('eval_result'), 0.0)
+
+
+@polls.route('/api/courses/<course_id>/concepts/<concept_id>/latest-question', methods=['GET'])
+@optional_auth
+def get_latest_concept_question(course_id, concept_id):
+    """Return the latest teacher question for a concept and its graded evidence."""
+    lectures = supabase.table('lecture_sessions').select('id').eq('course_id', course_id).execute().data
+    lecture_ids = [row['id'] for row in lectures]
+    if not lecture_ids:
+        return jsonify({'question': None, 'responses': []}), 200
+
+    questions = supabase.table('poll_questions').select(
+        'id, question, expected_answer, concept_id, lecture_id, status, generated_at'
+    ).eq('concept_id', concept_id).in_('lecture_id', lecture_ids).execute().data
+    if not questions:
+        return jsonify({'question': None, 'responses': []}), 200
+    question = sorted(questions, key=lambda row: row.get('generated_at') or '', reverse=True)[0]
+
+    responses = supabase.table('poll_responses').select(
+        'id, student_id, answer, evaluation, answered_at'
+    ).eq('question_id', question['id']).execute().data
+    student_ids = [row['student_id'] for row in responses if row.get('student_id')]
+    names = {}
+    if student_ids:
+        students = supabase.table('students').select('id, name').in_('id', student_ids).execute().data
+        names = {row['id']: row.get('name') or 'Student' for row in students}
+    for row in responses:
+        row['student_name'] = names.get(row.get('student_id'), 'Student')
+        row['score'] = _score_from_evaluation(row.get('evaluation'))
+    return jsonify({'question': question, 'responses': responses}), 200
+
+
+@polls.route('/api/polls/<poll_id>/responses/<response_id>/grade', methods=['PUT'])
+@optional_auth
+def edit_poll_response_grade(poll_id, response_id):
+    """Allow teacher or student UI to correct the numeric grade and refresh mastery."""
+    data = request.json or {}
+    try:
+        score = max(0.0, min(100.0, float(data['score'])))
+    except (KeyError, TypeError, ValueError):
+        return jsonify({'error': 'score must be a number from 0 to 100'}), 400
+
+    response_rows = supabase.table('poll_responses').select(
+        'id, student_id, answer, evaluation'
+    ).eq('id', response_id).eq('question_id', poll_id).execute().data
+    poll_rows = supabase.table('poll_questions').select('concept_id').eq('id', poll_id).execute().data
+    if not response_rows or not poll_rows:
+        return jsonify({'error': 'Response or poll not found'}), 404
+
+    response = response_rows[0]
+    evaluation = dict(response.get('evaluation') or {})
+    evaluation['score'] = score
+    evaluation['eval_result'] = 'correct' if score >= 75 else 'partial' if score >= 50 else 'wrong'
+    if data.get('feedback') is not None:
+        evaluation['feedback'] = str(data['feedback'])
+    updated = supabase.table('poll_responses').update({'evaluation': evaluation}).eq('id', response_id).execute()
+
+    concept_id = poll_rows[0].get('concept_id')
+    mastery = None
+    if concept_id and response.get('student_id'):
+        question_rows = supabase.table('poll_questions').select('id').eq('concept_id', concept_id).execute().data
+        question_ids = [row['id'] for row in question_rows]
+        all_responses = supabase.table('poll_responses').select('evaluation').eq(
+            'student_id', response['student_id']
+        ).in_('question_id', question_ids).execute().data if question_ids else []
+        scores = [_score_from_evaluation(row.get('evaluation')) for row in all_responses]
+        confidence = sum(scores) / len(scores) / 100 if scores else 0
+        mastery_rows = supabase.table('student_mastery').select('id').eq(
+            'student_id', response['student_id']
+        ).eq('concept_id', concept_id).execute().data
+        if mastery_rows:
+            supabase.table('student_mastery').update({
+                'confidence': confidence, 'attempts': len(scores)
+            }).eq('id', mastery_rows[0]['id']).execute()
+            mastery = {'confidence': confidence, 'attempts': len(scores)}
+
+    return jsonify({
+        'response': updated.data[0] if updated.data else {'id': response_id, 'evaluation': evaluation},
+        'score': score,
+        'mastery': mastery,
+    }), 200
 
 
 @polls.route('/api/polls/<poll_id>/diagnostic', methods=['GET'])
@@ -173,7 +270,7 @@ def get_poll_diagnostic(poll_id):
         mastery = supabase.table('student_mastery').select('student_id, confidence').eq(
             'concept_id', prerequisite['id']
         ).in_('student_id', struggling).execute().data
-        weak_overlap = sum(1 for row in mastery if (row.get('confidence') or 0.0) < 0.55)
+        weak_overlap = sum(1 for row in mastery if (row.get('confidence') or 0.0) < 0.5)
         candidate = {
             'concept_id': prerequisite['id'],
             'label': prerequisite['label'],

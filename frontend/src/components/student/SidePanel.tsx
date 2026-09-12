@@ -1,25 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Send,
   CheckCircle2,
-  MessageSquare,
   BarChart2,
   BookOpen,
   AlertCircle,
   Sparkles,
-  Mic,
   X,
 } from "lucide-react";
 import type { GraphNode } from "@/components/graph/KnowledgeGraph";
-import type { TranscriptChunk } from "@/components/dashboard/TranscriptFeed";
 import { COLOR_HEX, confidenceToNodeBorder } from "@/lib/colors";
 import { flaskApi, nextApi } from "@/lib/api";
 import { formatTimestamp } from "@/lib/graph";
+import { formatConceptLabel } from "@/lib/concepts";
 import PerplexityDialog from "./PerplexityDialog";
-import LectureSummaryPanel from "./LectureSummaryPanel";
 import ConceptLearning from "./ConceptLearning";
 
 interface TranscriptExcerpt {
@@ -35,29 +32,13 @@ interface Resource {
   snippet: string;
 }
 
-export interface LectureSummaryData {
-  bullets: string[];
-  title_summary: string;
-  covered_concept_ids: string[];
-}
-
-interface WeakConcept {
-  id: string;
-  label: string;
-  confidence: number;
-}
-
 interface SidePanelProps {
   activePoll: { pollId: string; question: string; conceptLabel: string } | null;
   studentId: string;
-  transcriptChunks: TranscriptChunk[];
   selectedNode: GraphNode | null;
   onDeselectNode: () => void;
   lectureId: string | null;
   courseId: string | null;
-  lectureEnded?: boolean;
-  lectureSummary?: LectureSummaryData | null;
-  weakConcepts?: WeakConcept[];
   onStartTutoring?: () => void;
   onConceptClick?: (conceptId: string) => void;
 }
@@ -65,24 +46,23 @@ interface SidePanelProps {
 export default function SidePanel({
   activePoll,
   studentId,
-  transcriptChunks,
   selectedNode,
   onDeselectNode,
   lectureId,
   courseId,
-  lectureEnded,
-  lectureSummary,
-  weakConcepts,
   onStartTutoring,
   onConceptClick,
 }: SidePanelProps) {
-  const [activeTab, setActiveTab] = useState<"poll" | "transcript" | "summary" | "concept">("poll");
-  const prevTabRef = useRef<"poll" | "transcript" | "summary">("poll");
+  const [activeTab, setActiveTab] = useState<"poll" | "concept">("poll");
 
   // Poll state
   const [pollAnswer, setPollAnswer] = useState("");
   const [pollSubmitted, setPollSubmitted] = useState(false);
   const [pollFeedback, setPollFeedback] = useState<string | null>(null);
+  const [pollScore, setPollScore] = useState<number | null>(null);
+  const [pollResponseId, setPollResponseId] = useState<string | null>(null);
+  const [editingGrade, setEditingGrade] = useState(false);
+  const [savingGrade, setSavingGrade] = useState(false);
   const [pollLoading, setPollLoading] = useState(false);
 
   // Node detail state
@@ -97,41 +77,27 @@ export default function SidePanel({
   // Concept learning dialog state
   const [learningOpen, setLearningOpen] = useState(false);
 
-  // Transcript auto-scroll
-  const transcriptBottomRef = useRef<HTMLDivElement>(null);
-
   // Reset poll state when poll changes
   useEffect(() => {
     setPollAnswer("");
     setPollSubmitted(false);
     setPollFeedback(null);
+    setPollScore(null);
+    setPollResponseId(null);
+    setEditingGrade(false);
   }, [activePoll?.pollId]);
-
-  // Auto-switch to summary tab when lecture ends
-  useEffect(() => {
-    if (lectureEnded) {
-      setActiveTab("summary");
-    }
-  }, [lectureEnded]);
 
   // Auto-switch to concept tab when a node is selected
   useEffect(() => {
     if (selectedNode) {
       if (activeTab !== "concept") {
-        prevTabRef.current = activeTab as "poll" | "transcript" | "summary";
+        // Return to the live poll after closing concept details.
       }
       setActiveTab("concept");
     } else if (activeTab === "concept") {
-      setActiveTab(prevTabRef.current);
+      setActiveTab("poll");
     }
   }, [selectedNode?.id]);
-
-  // Auto-scroll transcript
-  useEffect(() => {
-    if (activeTab === "transcript") {
-      transcriptBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [transcriptChunks.length, activeTab]);
 
   // Fetch node detail data when selectedNode changes
   useEffect(() => {
@@ -175,12 +141,24 @@ export default function SidePanel({
         answer: pollAnswer.trim(),
       });
       setPollFeedback(res.evaluation?.feedback || "Answer submitted.");
+      setPollScore(typeof res.evaluation?.score === "number" ? res.evaluation.score : null);
+      setPollResponseId(res.responseId || null);
       setPollSubmitted(true);
     } catch {
       setPollFeedback("Failed to submit. Please try again.");
     } finally {
       setPollLoading(false);
     }
+  }
+
+  async function saveStudentGrade() {
+    if (!activePoll || !pollResponseId || pollScore === null || pollScore < 0 || pollScore > 100) return;
+    setSavingGrade(true);
+    try {
+      const result = await flaskApi.put(`/api/polls/${activePoll.pollId}/responses/${pollResponseId}/grade`, { score: pollScore });
+      setPollScore(result.score);
+      setEditingGrade(false);
+    } finally { setSavingGrade(false); }
   }
 
   // Node detail content
@@ -203,7 +181,7 @@ export default function SidePanel({
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-800 truncate">{selectedNode.label}</h2>
+            <h2 className="text-lg font-semibold text-gray-800 truncate">{formatConceptLabel(selectedNode.label)}</h2>
             {selectedNode.category && (
               <span className="inline-flex items-center mt-1 px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 border border-gray-200 rounded-full">
                 {selectedNode.category}
@@ -409,32 +387,6 @@ export default function SidePanel({
             <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
           )}
         </button>
-        <button
-          onClick={() => setActiveTab("transcript")}
-          className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
-            activeTab === "transcript" ? "text-gray-800" : "text-gray-400 hover:text-gray-500"
-          }`}
-        >
-          <MessageSquare size={15} />
-          <span>Transcript</span>
-          {activeTab === "transcript" && (
-            <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
-          )}
-        </button>
-        {lectureEnded && (
-          <button
-            onClick={() => setActiveTab("summary")}
-            className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
-              activeTab === "summary" ? "text-gray-800" : "text-gray-400 hover:text-gray-500"
-            }`}
-          >
-            <BookOpen size={15} />
-            <span>Summary</span>
-            {activeTab === "summary" && (
-              <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-800" />
-            )}
-          </button>
-        )}
         {selectedNode && (
           <div className="flex-1 relative flex items-center">
             <button
@@ -444,7 +396,7 @@ export default function SidePanel({
               }`}
             >
               <BookOpen size={15} />
-              <span className="truncate max-w-[80px]">{selectedNode.label}</span>
+              <span className="truncate max-w-[80px]">{formatConceptLabel(selectedNode.label)}</span>
             </button>
             <span
               role="button"
@@ -467,22 +419,6 @@ export default function SidePanel({
         <AnimatePresence mode="wait">
           {activeTab === "concept" && selectedNode ? (
             renderNodeContent()
-          ) : activeTab === "summary" ? (
-            <motion.div
-              key="summary"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-            >
-              <LectureSummaryPanel
-                loading={!lectureSummary}
-                bullets={lectureSummary?.bullets ?? []}
-                titleSummary={lectureSummary?.title_summary ?? "Lecture Summary"}
-                weakConcepts={weakConcepts ?? []}
-                onStartTutoring={onStartTutoring ?? (() => {})}
-                onConceptClick={onConceptClick}
-              />
-            </motion.div>
           ) : activeTab === "poll" ? (
             <motion.div
               key="poll"
@@ -498,7 +434,7 @@ export default function SidePanel({
                   </span>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200 rounded-full">
-                      {activePoll.conceptLabel}
+                      {formatConceptLabel(activePoll.conceptLabel)}
                     </span>
                   </div>
                   <h3 className="text-base text-gray-800 font-medium mb-4 leading-snug">
@@ -537,6 +473,12 @@ export default function SidePanel({
                           <p className="text-sm text-gray-600 italic">{pollFeedback}</p>
                         </div>
                       )}
+                      {pollScore !== null && (
+                        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                          <span className="text-gray-500">AI grade</span>
+                          {editingGrade ? <div className="flex items-center gap-2"><input type="number" min="0" max="100" value={pollScore} onChange={(event) => setPollScore(Number(event.target.value))} className="w-16 rounded border border-gray-200 px-2 py-1 text-right" /><button onClick={() => void saveStudentGrade()} disabled={savingGrade} className="font-medium text-blue-600">{savingGrade ? "Saving…" : "Save"}</button></div> : <button onClick={() => setEditingGrade(true)} className="font-semibold text-gray-700 underline decoration-gray-300 underline-offset-2">{Math.round(pollScore)}% · Edit</button>}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -552,69 +494,7 @@ export default function SidePanel({
                 </div>
               )}
             </motion.div>
-          ) : (
-            <motion.div
-              key="transcript"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-3"
-            >
-              {transcriptChunks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center mb-3">
-                    <Mic className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-500">Waiting for transcript...</p>
-                  <p className="text-xs text-gray-400 mt-1">Audio will appear here once the lecture starts</p>
-                </div>
-              ) : (
-                transcriptChunks.map((chunk, i) => {
-                  const isLatest = i === transcriptChunks.length - 1;
-                  return (
-                    <div
-                      key={chunk.id}
-                      className={`p-3 rounded-lg transition-colors ${
-                        isLatest ? "bg-gray-50 border border-gray-200" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      {chunk.timestamp != null && (
-                        <span className="text-xs font-mono text-gray-400 mb-1 block">
-                          {formatTimestamp(chunk.timestamp)}
-                        </span>
-                      )}
-                      {chunk.speakerName && (
-                        <span className="font-medium text-gray-500 text-xs uppercase tracking-wide">
-                          {chunk.speakerName}:{" "}
-                        </span>
-                      )}
-                      <p className={`text-sm leading-relaxed ${isLatest ? "text-gray-800" : "text-gray-600"}`}>
-                        {chunk.text}
-                      </p>
-                      {chunk.detectedConcepts && chunk.detectedConcepts.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {chunk.detectedConcepts.map((c) => (
-                            <span
-                              key={c.id}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border"
-                              style={{
-                                borderColor: (COLOR_HEX[c.color || "gray"] || COLOR_HEX.gray) + "40",
-                                color: COLOR_HEX[c.color || "gray"] || COLOR_HEX.gray,
-                                backgroundColor: (COLOR_HEX[c.color || "gray"] || COLOR_HEX.gray) + "10",
-                              }}
-                            >
-                              {c.label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-              <div ref={transcriptBottomRef} />
-            </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </div>
 
@@ -623,7 +503,7 @@ export default function SidePanel({
         <PerplexityDialog
           isOpen={perplexityOpen}
           onClose={() => setPerplexityOpen(false)}
-          conceptLabel={selectedNode.label}
+          conceptLabel={formatConceptLabel(selectedNode.label)}
           conceptDescription={selectedNode.description}
           lectureContext={
             transcripts.length > 0
@@ -640,7 +520,7 @@ export default function SidePanel({
       {selectedNode && (
         <ConceptLearning
           conceptId={selectedNode.id}
-          conceptLabel={selectedNode.label}
+          conceptLabel={formatConceptLabel(selectedNode.label)}
           studentId={studentId}
           isOpen={learningOpen}
           onClose={() => setLearningOpen(false)}

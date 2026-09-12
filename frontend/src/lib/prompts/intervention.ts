@@ -3,7 +3,7 @@ import { openAIText } from "@/lib/openai";
 interface ConceptDistribution {
   label: string;
   description: string;
-  distribution: { green: number; yellow: number; red: number; gray: number };
+  distribution: { green: number; yellow: number; orange: number; red: number; gray: number };
 }
 
 interface InterventionSuggestion {
@@ -26,7 +26,7 @@ export function buildInterventionPrompt(
   const conceptSummaries = concepts
     .map(
       (c) =>
-        `- ${c.label}: ${c.description}\n  Distribution: ${c.distribution.green} mastered, ${c.distribution.yellow} partial, ${c.distribution.red} struggling, ${c.distribution.gray} unvisited`
+        `- ${c.label}: ${c.description}\n  Distribution: ${c.distribution.green} mastered, ${c.distribution.yellow} developing, ${c.distribution.orange} orange, ${c.distribution.red} struggling, ${c.distribution.gray} unvisited`
     )
     .join("\n");
 

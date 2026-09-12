@@ -2,6 +2,7 @@
 
 import { BookOpen, CheckCircle2, AlertTriangle, Target, Circle } from "lucide-react";
 import { COLOR_HEX } from "@/lib/colors";
+import { formatConceptLabel } from "@/lib/concepts";
 
 export interface WeakConcept {
   id: string;
@@ -58,7 +59,7 @@ export default function WeakConceptsSidebar({ concepts }: WeakConceptsSidebarPro
               <StatusIcon color={c.color} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-gray-700 truncate">{c.label}</span>
+                  <span className="text-sm text-gray-700 truncate">{formatConceptLabel(c.label)}</span>
                   <span
                     className="text-xs font-mono tabular-nums shrink-0"
                     style={{ color: COLOR_HEX[c.color] || COLOR_HEX.gray }}

@@ -470,7 +470,37 @@ def main():
             "evaluation": json.dumps(evaluation),
         }).execute()
 
-    print(f"  2 polls with {len(poll_responses)} responses\n")
+    # Add one teacher-authored mock question for every remaining concept so
+    # the node map has a full graph of response-driven colors to exercise.
+    # Numeric scores preserve the intentional differences in the student
+    # profiles, including red, orange, yellow, and green buckets.
+    covered_labels = {"Backpropagation", "Activation Functions"}
+    remaining_labels = [label for label in label_to_id if label not in covered_labels]
+    for label in remaining_labels:
+        question = supabase.table("poll_questions").insert({
+            "lecture_id": lecture_id,
+            "concept_id": label_to_id[label],
+            "question": f"In one sentence, what is {label} and why is it useful?",
+            "expected_answer": concepts_spec[next(i for i, c in enumerate(concepts_spec) if c["label"] == label)]["description"],
+            "status": "closed",
+        }).execute().data[0]
+
+        for student_name, profile in mastery_profiles.items():
+            score = round(profile[label] * 100, 1)
+            eval_result = "correct" if score >= 75 else "partial" if score >= 50 else "wrong"
+            supabase.table("poll_responses").insert({
+                "question_id": question["id"],
+                "student_id": student_ids[student_name],
+                "answer": f"Mock response demonstrating {label} understanding at {score:.0f}%.",
+                "evaluation": json.dumps({
+                    "eval_result": eval_result,
+                    "score": score,
+                    "feedback": "Seeded demo response for node-color testing.",
+                    "reasoning": "Deterministic mock score from the student's seeded understanding profile.",
+                }),
+            }).execute()
+
+    print(f"  {len(label_to_id)} polls with {len(poll_responses) + len(remaining_labels) * len(students_spec)} responses\n")
 
     # -------------------------------------------------------------------
     # 10. Historical tutoring session for Sam

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronUp, BookOpen, FileText, Mic } from "lucide-react";
 import { flaskApi } from "@/lib/api";
+import { formatConceptLabel } from "@/lib/concepts";
 import { confidenceToNodeBorder } from "@/lib/colors";
 import { useAuth } from "@/lib/auth-context";
 
@@ -145,7 +146,7 @@ export default function SummariesPage() {
             <ArrowLeft size={18} />
           </button>
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            node
+            Node
           </h1>
           <span className="text-xs text-gray-400 ml-1">Lecture Summaries</span>
         </div>
@@ -261,7 +262,7 @@ export default function SummariesPage() {
                                     confidenceToNodeBorder(c.confidence) + "10",
                                 }}
                               >
-                                {c.label} ({Math.round(c.confidence * 100)}%)
+                                {formatConceptLabel(c.label)} ({Math.round(c.confidence * 100)}%)
                               </span>
                             ))}
                           </div>

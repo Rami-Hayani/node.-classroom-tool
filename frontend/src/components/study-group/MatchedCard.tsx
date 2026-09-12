@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { User, Send, Loader2, MessageCircle, ArrowRight, ArrowLeft, Clock } from "lucide-react";
 import { nextApi } from "@/lib/api";
 import { COLOR_HEX } from "@/lib/colors";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface ConceptComparison {
   conceptId: string;
@@ -207,7 +208,7 @@ export default function MatchedCard({ matchDetails, partnerProfile, studentName,
                   {/* Concept label + arrow indicator */}
                   <div className="flex-1 flex items-center justify-center gap-1 min-w-0">
                     {theyTeachYou && <ArrowLeft className="w-3 h-3 text-green-500 shrink-0" />}
-                    <span className="text-xs text-gray-600 font-medium truncate text-center">{c.label}</span>
+                    <span className="text-xs text-gray-600 font-medium truncate text-center">{formatConceptLabel(c.label)}</span>
                     {youTeachThem && <ArrowRight className="w-3 h-3 text-blue-500 shrink-0" />}
                   </div>
 

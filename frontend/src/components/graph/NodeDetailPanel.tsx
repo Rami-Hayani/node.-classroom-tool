@@ -5,6 +5,7 @@ import { X, CheckCircle2 } from "lucide-react";
 import { COLOR_HEX } from "@/lib/colors";
 import { flaskApi, nextApi } from "@/lib/api";
 import { formatTimestamp } from "@/lib/graph";
+import { formatConceptLabel } from "@/lib/concepts";
 import type { GraphNode } from "./KnowledgeGraph";
 
 interface TranscriptExcerpt {
@@ -84,7 +85,7 @@ export default function NodeDetailPanel({ node, onClose, lectureId, courseId }: 
       {/* Header */}
       <div className="flex items-start justify-between p-4 pb-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold text-slate-800 tracking-tight">{node.label}</h3>
+          <h3 className="text-lg font-semibold text-slate-800 tracking-tight">{formatConceptLabel(node.label)}</h3>
           {node.category && (
             <span className="inline-flex items-center mt-1.5 px-2.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-600 border border-blue-100 rounded-full">
               {node.category}

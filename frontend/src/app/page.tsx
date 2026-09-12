@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { flaskApi } from "@/lib/api";
 import StarsBackground from "@/components/ui/StarsBackground";
-import CircuitLines from "@/components/ui/CircuitLines";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -22,7 +21,6 @@ export default function LandingPage() {
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
-  const heroRef = useRef<HTMLDivElement>(null);
 
   // Auto-redirect authenticated users
   useEffect(() => {
@@ -165,29 +163,21 @@ export default function LandingPage() {
   // --- Unauthenticated: Splash ---
   if (!showAuth) {
     return (
-      <div ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <StarsBackground />
-        <CircuitLines containerRef={heroRef} />
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
-            data-circuit-anchor="wordmark"
-            data-circuit-order="0"
-            data-circuit-side="bottom"
-            className="font-sans font-normal text-[clamp(5rem,11vw,9rem)] leading-[0.72] text-[#286da8] tracking-[-0.09em] mb-8 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
+            className="font-[family-name:var(--font-instrument-serif)] text-7xl sm:text-8xl text-gray-800 tracking-tight mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
+            style={{ letterSpacing: "-0.03em" }}
           >
-            node<span className="ml-[0.04em] inline-block h-[0.12em] w-[0.12em] translate-y-[0.02em] rounded-full bg-[#286da8]" aria-hidden="true" />
+            Node
           </h1>
-          <p
-            data-circuit-anchor="tagline"
-            data-circuit-order="1"
-            data-circuit-side="top"
-            className="max-w-[min(90vw,52rem)] text-base sm:text-xl lg:text-2xl text-gray-600 tracking-tight text-center mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light"
-          >
-            See what your class understands. Know exactly what to teach next.
+          <p className="text-lg sm:text-2xl text-gray-500 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
+            Real-time knowledge graphs for every lecture
           </p>
           <button
             onClick={() => setShowAuth(true)}
-            className="px-12 py-4 rounded-full border border-[#286da8]/80 text-gray-700 font-medium text-base hover:bg-[#286da8] hover:text-white hover:border-[#286da8] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
+            className="px-12 py-4 rounded-full border border-gray-300 text-gray-600 font-medium text-base hover:bg-gray-800 hover:text-white hover:border-gray-800 active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
           >
             Get Started
           </button>
@@ -205,6 +195,14 @@ export default function LandingPage() {
           {/*    [Dev] Test Study Groups*/}
           {/*  </button>*/}
           {/*)}*/}
+            <div className="flex items-center gap-8 mt-16 animate-[fadeInUp_0.7s_ease-out_0.55s_both]">
+          <span className="text-sm text-gray-500 uppercase tracking-wider">Works with</span>
+          <img src="/perplexity-logo.png" alt="Perplexity" className="h-10 opacity-80" />
+          <img src="/render-logo.png" alt="Render" className="h-10 opacity-80" />
+          <img src="/stanford-logo.png" alt="Stanford" className="h-16 opacity-80" />
+          <img src="/purdue-logo.png" alt="Purdue" className="h-8 opacity-70" />
+          <img src="/berkeley-logo.png" alt="Berkeley" className="h-12 opacity-80" />
+        </div>
         </div>
         <style jsx>{`
           @keyframes fadeInUp {
@@ -352,10 +350,10 @@ function Header() {
         className="font-[family-name:var(--font-instrument-serif)] text-5xl text-gray-800 tracking-tight mb-2"
         style={{ letterSpacing: "-0.02em" }}
       >
-        node
+        Node
       </h1>
       <p className="text-sm text-gray-500 tracking-wide font-light">
-        Know what your class understands and what to teach next.
+        Real-time knowledge graphs for every lecture
       </p>
     </div>
   );

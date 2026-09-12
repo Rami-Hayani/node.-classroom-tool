@@ -8,7 +8,8 @@ import ChatInterface, { type ChatMessage } from "@/components/tutor/ChatInterfac
 import { useSocketEvent } from "@/lib/socket";
 import { nextApi } from "@/lib/api";
 import { confidenceToColor } from "@/lib/colors";
-import { useAuth } from "@/lib/auth-context";
+import StudentTopNav from "@/components/student/StudentTopNav";
+import { formatConceptLabel } from "@/lib/concepts";
 
 /** Aaron logo — cute "A" in Instrument Serif, aligned with landing page style */
 function AaronLogo({ className = "w-9 h-9 text-xl" }: { className?: string }) {
@@ -40,7 +41,6 @@ export default function TutoringView() {
   const params = useParams();
   const router = useRouter();
   const studentId = params.studentId as string;
-  const { signOut } = useAuth();
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [weakConcepts, setWeakConcepts] = useState<WeakConcept[]>(MOCK_WEAK_CONCEPTS);
@@ -106,27 +106,26 @@ export default function TutoringView() {
             : c,
         ),
       );
-      const label = u.conceptLabel || weakConcepts.find((c) => c.id === u.conceptId)?.label || "a concept";
+      const label = formatConceptLabel(u.conceptLabel || weakConcepts.find((c) => c.id === u.conceptId)?.label || "a concept");
       setNotification(`Your understanding of ${label} improved!`);
       setTimeout(() => setNotification(null), 3000);
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <AaronLogo className="w-12 h-12 text-2xl animate-pulse" />
-          <p className="text-sm text-gray-500 font-medium">Starting tutoring session...</p>
-        </div>
+    return <div className="flex h-screen flex-col bg-gray-50 font-sans">
+      <StudentTopNav studentId={studentId} />
+      <div className="flex flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-3"><AaronLogo className="h-12 w-12 animate-pulse text-2xl" /><p className="text-sm font-medium text-gray-500">Loading tutoring workspace…</p></div>
       </div>
-    );
+    </div>;
   }
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 relative overflow-hidden font-sans">
+      <StudentTopNav studentId={studentId} />
       {/* Header — aligned with landing page */}
-      <header className="relative z-10 flex items-center gap-3 bg-white/80 backdrop-blur-sm border-b border-gray-200 px-4 py-3">
+      <header className="hidden">
         <button
           onClick={() => router.back()}
           className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
@@ -138,15 +137,6 @@ export default function TutoringView() {
           <h1 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight leading-tight">Aaron - AI Tutor</h1>
           <p className="text-xs text-gray-500 font-medium">Personalized learning session</p>
         </div>
-        <button
-          onClick={async () => {
-            await signOut();
-            router.push("/");
-          }}
-          className="ml-auto text-sm text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          Sign out
-        </button>
       </header>
 
       {/* Notification toast */}

@@ -199,17 +199,6 @@ router.post("/api/lectures/:id/transcript", json(), async (req, res) => {
     });
   }
 
-  // Step 4: Fire-and-forget attendance-boost
-  if (detectedConcepts.length > 0) {
-    const studentIds = getStudentsInLecture(lectureId);
-    if (studentIds.length > 0) {
-      flaskPost("/api/mastery/attendance-boost", {
-        concept_ids: detectedConcepts.map((c) => c.id),
-        student_ids: studentIds,
-      }).catch(() => {});
-    }
-  }
-
   res.json({ chunkId: chunk!.id, detectedConcepts });
 });
 

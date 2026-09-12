@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { type HeatmapConcept } from "@/components/dashboard/ConceptHeatmap";
-import ConceptHeatmap from "@/components/dashboard/ConceptHeatmap";
 import KnowledgeGraph, { type GraphNode, type GraphEdge } from "@/components/graph/KnowledgeGraph";
 import ConceptInsightPanel from "@/components/dashboard/ConceptInsightPanel";
 import ClassInsightCard from "@/components/dashboard/ClassInsightCard";
@@ -14,6 +13,7 @@ import { useSocket, useSocketEvent, useSocketReady } from "@/lib/socket";
 import { flaskApi, nextApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { formatConceptLabel } from "@/lib/concepts";
+import { getAncestors } from "@/lib/graph";
 
 
 export default function ProfessorDashboard() {
@@ -37,7 +37,8 @@ export default function ProfessorDashboard() {
   const [misconception, setMisconception] = useState<string | undefined>();
   const [followUpRequest, setFollowUpRequest] = useState<{ conceptId: string; nonce: number } | null>(null);
   const [interventionTrigger, setInterventionTrigger] = useState(0);
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [responseRefresh, setResponseRefresh] = useState(0);
+  const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
 
   const socket = useSocket();
   const socketReady = useSocketReady();
@@ -216,10 +217,16 @@ export default function ProfessorDashboard() {
     }, [courseId]),
   );
 
+  useSocketEvent<{ pollId: string; studentId: string }>(
+    "poll:response-received",
+    useCallback(() => setResponseRefresh((value) => value + 1), []),
+  );
+
   const classNodes = useMemo(() => graphNodes.map((node) => {
-    const heat = heatmapData.find((item) => item.id === node.id);
-    return { ...node, avgConfidence: heat?.avg_confidence ?? 0, distribution: heat?.distribution, strugglingCount: heat?.struggling_count ?? 0, masteredCount: heat?.mastered_count ?? 0, splitClass: heat?.split_class ?? false };
-  }), [graphNodes, heatmapData]);
+    // The node map is driven directly by poll responses returned by the graph
+    // endpoint. Heatmap data is only used by the heatmap view.
+    return { ...node, avgConfidence: node.avgConfidence ?? 0 };
+  }), [graphNodes]);
   const selectedConcept = classNodes.find((node) => node.id === selectedConceptId) || null;
   const weakPrerequisiteIds = useMemo(() => {
     if (!activeConceptId) return new Set<string>();
@@ -227,13 +234,13 @@ export default function ProfessorDashboard() {
     for (const edge of graphEdges) {
       if (edge.target === activeConceptId) {
         const source = classNodes.find((node) => node.id === edge.source);
-        if (source && (source.avgConfidence ?? 0) < 0.55) weak.add(source.id);
+        if (source && (source.avgConfidence ?? 0) < 0.5) weak.add(source.id);
       }
     }
     return weak;
   }, [activeConceptId, graphEdges, classNodes]);
   const splitConceptIds = useMemo(() => new Set(classNodes.filter((node) => node.splitClass).map((node) => node.id)), [classNodes]);
-  const strugglingConceptIds = classNodes.filter((node) => (node.avgConfidence ?? 0) < 0.55).map((node) => node.id);
+  const strugglingConceptIds = classNodes.filter((node) => (node.avgConfidence ?? 0) > 0 && (node.avgConfidence ?? 0) < 0.5).map((node) => node.id);
 
   function handleCourseChange(nextCourseId: string) {
     const selected = authCourses.find((course) => course.id === nextCourseId);
@@ -263,7 +270,7 @@ export default function ProfessorDashboard() {
       <header className="relative z-10 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-gray-200/80 px-5 h-14">
         <div className="flex items-center gap-4">
           <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            node
+            Node
           </h1>
           <span className="text-sm text-gray-400 font-light">Live Class Understanding Map</span>
           {authCourses.length > 0 && (
@@ -337,18 +344,13 @@ export default function ProfessorDashboard() {
         </div>
       </header>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
-        <div className="flex min-h-[440px] flex-1 gap-3">
-          <section className="flex min-w-0 flex-[7] flex-col rounded-2xl border border-gray-200/80 bg-white p-3">
-            <div className="flex items-center justify-between px-2 pb-2"><div><h2 className="text-sm font-semibold text-gray-800">{showHeatmap ? "Class Mastery Heatmap" : "Class Understanding Map"}</h2><p className="text-xs text-gray-400">{showHeatmap ? "Compare aggregate mastery across concepts and categories." : "Mastery is shown on the prerequisite graph. Click a concept for student-level evidence."}</p></div><div className="flex items-center gap-3 text-[10px] text-gray-400"><button onClick={() => setShowHeatmap((value) => !value)} className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 font-medium text-gray-600 hover:bg-gray-50">{showHeatmap ? "View prerequisite graph" : "View mastery heatmap"}</button>{!showHeatmap && <><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-red-400" />struggling</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400" />developing</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />mastered</span></>}</div></div>
-            <div className="min-h-0 flex-1">{showHeatmap ? <ConceptHeatmap concepts={heatmapData} totalStudents={totalStudents} activeConceptId={activeConceptId} /> : <KnowledgeGraph nodes={classNodes} edges={graphEdges} mode="professor" activeConceptId={activeConceptId} weakPrerequisiteIds={weakPrerequisiteIds} splitConceptIds={splitConceptIds} onNodeClick={(node) => { setSelectedConceptId(node.id); setActiveConceptId(node.id); }} />}</div>
-          </section>
-          <aside className="flex w-[30%] min-w-[280px] flex-col gap-3"><ConceptInsightPanel courseId={courseId} concept={selectedConcept} /><ClassInsightCard rootCause={diagnostic?.root_cause || null} misconception={misconception} splitClass={Boolean(selectedConcept?.splitClass)} onAskDiagnostic={() => { if (diagnostic?.root_cause) { setActiveConceptId(diagnostic.root_cause.concept_id); setFollowUpRequest({ conceptId: diagnostic.root_cause.concept_id, nonce: Date.now() }); } }} /></aside>
-        </div>
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <PollControls lectureId={lectureId} concepts={classNodes.map((c) => ({ id: c.id, label: formatConceptLabel(c.label) }))} activeConceptId={activeConceptId} connectedStudentCount={connectedStudentCount} followUpRequest={followUpRequest} onPollActivated={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }} onPollClosed={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); setMisconception(poll.misconceptionSummary); setInterventionTrigger((value) => value + 1); nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null)); }} />
-          <InterventionPanel lectureId={lectureId} conceptIds={strugglingConceptIds.slice(0, 5)} triggerVersion={interventionTrigger} />
-        </div>
+      <div className="relative z-10 flex min-h-0 flex-1 gap-3 overflow-auto p-3">
+        <section className="flex min-h-0 min-w-0 flex-[4] flex-col rounded-2xl border border-gray-200/80 bg-white p-3">
+            <div className="px-2 pb-2"><h2 className="text-sm font-semibold text-gray-800">Class Understanding Map</h2><p className="text-xs text-gray-400">Mastery is shown directly on the prerequisite graph. Click a concept for student-level evidence.</p></div>
+            <div className="min-h-0 flex-1"><KnowledgeGraph nodes={classNodes} edges={graphEdges} mode="professor" activeConceptId={activeConceptId} highlightedNodeIds={highlightedNodeIds} weakPrerequisiteIds={weakPrerequisiteIds} splitConceptIds={splitConceptIds} onNodeClick={(node) => { setSelectedConceptId(node.id); const ancestors = getAncestors(node.id, graphEdges); ancestors.add(node.id); setHighlightedNodeIds(ancestors); }} /></div>
+        </section>
+        <aside className="flex min-h-0 min-w-0 flex-[3] flex-col gap-3 overflow-y-auto"><ConceptInsightPanel courseId={courseId} concept={selectedConcept} refreshKey={responseRefresh} /><ClassInsightCard rootCause={diagnostic?.root_cause || null} misconception={misconception} splitClass={Boolean(selectedConcept?.splitClass)} onAskDiagnostic={() => { if (diagnostic?.root_cause) { setActiveConceptId(diagnostic.root_cause.concept_id); setFollowUpRequest({ conceptId: diagnostic.root_cause.concept_id, nonce: Date.now() }); } }} /><InterventionPanel lectureId={lectureId} conceptIds={strugglingConceptIds.slice(0, 5)} triggerVersion={interventionTrigger} /></aside>
+        <aside className="min-h-0 min-w-0 flex-[3] overflow-y-auto"><PollControls lectureId={lectureId} concepts={classNodes.map((c) => ({ id: c.id, label: formatConceptLabel(c.label) }))} activeConceptId={activeConceptId} selectedNodeId={selectedConceptId} connectedStudentCount={connectedStudentCount} followUpRequest={followUpRequest} onPollActivated={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }} onPollClosed={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); setMisconception(poll.misconceptionSummary); setInterventionTrigger((value) => value + 1); nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null)); }} /></aside>
       </div>
 
     </div>

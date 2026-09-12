@@ -15,12 +15,12 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 def confidence_to_color(confidence):
     if confidence == 0.0:
         return "gray"
-    elif confidence < 0.4:
+    elif confidence < 0.25:
+        return "red"
+    elif confidence < 0.5:
         return "orange"
-    elif confidence < 0.55:
+    elif confidence < 0.75:
         return "yellow"
-    elif confidence < 0.7:
-        return "lime"
     else:
         return "green"
 
@@ -134,18 +134,35 @@ def update_mastery(student_id, concept_id):
     old_attempts = current[0]['attempts']
     old_color = confidence_to_color(old_confidence)
 
-    # Calculate new confidence
-    if 'confidence' in data:
+    # Poll mastery is the average percentage earned on every graded question
+    # for this concept. Attendance and connection status never affect it.
+    if 'eval_result' in data:
+        questions = supabase.table('poll_questions').select('id').eq('concept_id', concept_id).execute().data
+        question_ids = [question['id'] for question in questions]
+        responses = []
+        if question_ids:
+            responses = supabase.table('poll_responses').select('evaluation').eq(
+                'student_id', student_id
+            ).in_('question_id', question_ids).execute().data
+
+        scores = []
+        for response in responses:
+            evaluation = response.get('evaluation') or {}
+            score = evaluation.get('score')
+            if isinstance(score, (int, float)):
+                scores.append(max(0.0, min(100.0, float(score))))
+            else:
+                scores.append({'correct': 100.0, 'partial': 60.0, 'wrong': 10.0}.get(
+                    evaluation.get('eval_result'), 0.0
+                ))
+        new_confidence = sum(scores) / len(scores) / 100.0 if scores else old_confidence
+        new_attempts = len(scores)
+    elif 'confidence' in data:
         new_confidence = max(0.0, min(1.0, data['confidence']))
-    elif 'eval_result' in data:
-        if data['eval_result'] == 'correct':
-            new_confidence = max(old_confidence, 0.85)
-        elif data['eval_result'] == 'partial':
-            new_confidence = max(old_confidence, 0.50)
-        else:  # wrong
-            new_confidence = 0.20 if old_confidence == 0.0 else min(old_confidence, 0.20)
+        new_attempts = old_attempts
     elif 'delta' in data:
         new_confidence = max(0.0, min(1.0, old_confidence + data['delta']))
+        new_attempts = old_attempts
     else:
         return jsonify({'error': 'Must provide confidence, eval_result, or delta'}), 400
 
@@ -154,7 +171,7 @@ def update_mastery(student_id, concept_id):
     # Update (no nested query — reuse attempts from the first read)
     supabase.table('student_mastery').update({
         'confidence': new_confidence,
-        'attempts': old_attempts + (1 if 'eval_result' in data else 0)
+        'attempts': new_attempts
     }).eq('student_id', student_id).eq('concept_id', concept_id).execute()
 
     # Invalidate caches affected by mastery change

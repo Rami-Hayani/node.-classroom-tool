@@ -20,9 +20,11 @@ def confidence_to_color(confidence):
     """Helper: derive color from confidence."""
     if confidence == 0.0:
         return "gray"
-    elif confidence < 0.4:
+    elif confidence < 0.25:
         return "red"
-    elif confidence < 0.7:
+    elif confidence < 0.5:
+        return "orange"
+    elif confidence < 0.75:
         return "yellow"
     else:
         return "green"

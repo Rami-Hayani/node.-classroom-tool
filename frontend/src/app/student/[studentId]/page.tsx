@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { GraduationCap, Users, FileText } from "lucide-react";
 import type { GraphNode, GraphEdge } from "@/components/graph/KnowledgeGraph";
-import SidePanel, { type LectureSummaryData } from "@/components/student/SidePanel";
-import { type TranscriptChunk } from "@/components/dashboard/TranscriptFeed";
+import SidePanel from "@/components/student/SidePanel";
+import StudentTopNav from "@/components/student/StudentTopNav";
 import { useSocket, useSocketEvent, useSocketReady } from "@/lib/socket";
 import { flaskApi } from "@/lib/api";
 import { confidenceToColor } from "@/lib/colors";
@@ -29,7 +28,7 @@ export default function StudentView() {
   const studentId = params.studentId as string;
   const socket = useSocket();
   const socketReady = useSocketReady();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
 
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -37,10 +36,8 @@ export default function StudentView() {
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
   const [activeConceptId, setActiveConceptId] = useState<string | null>(null);
   const [activePoll, setActivePoll] = useState<PollData | null>(null);
-  const [transcriptChunks, setTranscriptChunks] = useState<TranscriptChunk[]>([]);
   const [lectureId, setLectureId] = useState<string | null>(null);
   const [lectureEnded, setLectureEnded] = useState(false);
-  const [lectureSummary, setLectureSummary] = useState<LectureSummaryData | null>(null);
 
   // Get courseId from localStorage (reactive — poll until available)
   const [courseId, setCourseId] = useState<string | null>(null);
@@ -54,20 +51,6 @@ export default function StudentView() {
     }, 200);
     return () => clearInterval(interval);
   }, []);
-
-  // Mastery summary counts
-  const masteryCounts = useMemo(() => {
-    const counts = { mastered: 0, good: 0, partial: 0, struggling: 0, notStarted: 0 };
-    for (const n of nodes) {
-      const c = n.confidence ?? 0;
-      if (c === 0) counts.notStarted++;
-      else if (c < 0.4) counts.struggling++;
-      else if (c < 0.55) counts.partial++;
-      else if (c < 0.7) counts.good++;
-      else counts.mastered++;
-    }
-    return counts;
-  }, [nodes]);
 
   // Fetch real graph data (with retry on failure)
   useEffect(() => {
@@ -157,21 +140,6 @@ export default function StudentView() {
   }, [socket, lectureId, studentId, socketReady]);
 
   // Socket events
-  useSocketEvent<{ text: string; timestamp: number; detectedConcepts?: { id: string; label: string }[] }>(
-    "transcript:chunk",
-    useCallback((data) => {
-      setTranscriptChunks((prev) => [
-        ...prev,
-        {
-          id: `tc-${Date.now()}`,
-          text: data.text,
-          timestamp: data.timestamp,
-          detectedConcepts: data.detectedConcepts,
-        },
-      ]);
-    }, []),
-  );
-
   useSocketEvent<{ conceptId: string; label: string }>(
     "lecture:concept-detected",
     useCallback((data) => {
@@ -214,28 +182,6 @@ export default function StudentView() {
     }, []),
   );
 
-  // Lecture summary ready
-  useSocketEvent<{ lectureId: string; summary: LectureSummaryData }>(
-    "lecture:summary-ready",
-    useCallback((data) => {
-      setLectureSummary(data.summary);
-      // Highlight covered concepts on the graph
-      if (data.summary.covered_concept_ids?.length) {
-        setHighlightedNodeIds(new Set(data.summary.covered_concept_ids));
-      }
-    }, []),
-  );
-
-  // Weak concepts: covered in this lecture with confidence < 0.7
-  const weakConcepts = useMemo(() => {
-    if (!lectureSummary?.covered_concept_ids) return [];
-    const coveredSet = new Set(lectureSummary.covered_concept_ids);
-    return nodes
-      .filter((n) => coveredSet.has(n.id) && (n.confidence ?? 0) > 0 && (n.confidence ?? 0) < 0.7)
-      .map((n) => ({ id: n.id, label: n.label, confidence: n.confidence ?? 0 }))
-      .sort((a, b) => a.confidence - b.confidence);
-  }, [nodes, lectureSummary]);
-
   // Toggle selection: click same node = deselect
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
@@ -259,64 +205,11 @@ export default function StudentView() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 text-gray-800 relative overflow-hidden font-sans">
-      {/* Header */}
-      <header className="relative z-10 h-14 flex items-center justify-between px-6 border-b border-gray-200/80 bg-white/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <h1 className="font-[family-name:var(--font-instrument-serif)] text-xl text-gray-800 tracking-tight">
-            node
-          </h1>
-          <div className="flex items-center gap-1.5 ml-1">
-            {lectureEnded ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                <span className="text-xs text-gray-400">Lecture Ended</span>
-              </>
-            ) : (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs text-gray-400">{lectureId ? "Live Lecture" : "Waiting for class"}</span>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push(`/student/${studentId}/tutor`)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-all active:scale-[0.97]"
-          >
-            <GraduationCap size={15} />
-            <span>Start Tutoring</span>
-          </button>
-          <button
-            onClick={() => router.push(`/student/${studentId}/summaries`)}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-400 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-all active:scale-[0.97]"
-          >
-            <FileText size={15} />
-            <span>Summaries</span>
-          </button>
-          <button
-            onClick={() => router.push(`/student/${studentId}/study-group`)}
-            className="flex items-center gap-2 px-4 py-2 bg-sky-500/80 hover:bg-sky-500 text-white text-sm font-medium rounded-lg transition-all active:scale-[0.97]"
-          >
-            <Users size={15} />
-            <span>Find Study Partner</span>
-          </button>
-          {user && (
-            <button
-              onClick={async () => {
-                await signOut();
-                router.push("/");
-              }}
-              className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              Sign out
-            </button>
-          )}
-          <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs font-medium text-white">
-            {(user?.email?.[0] || "S").toUpperCase()}
-          </div>
-        </div>
-      </header>
+      <StudentTopNav studentId={studentId} email={user?.email} />
+      <div className="relative z-10 flex h-8 items-center justify-center gap-1.5 border-b border-gray-200/80 bg-white/80 text-[11px] text-gray-400">
+        <span className={`h-1.5 w-1.5 rounded-full ${lectureEnded ? "bg-gray-400" : "bg-red-500 animate-pulse"}`} />
+        {lectureEnded ? "Lecture ended" : lectureId ? "Live lecture" : "Waiting for class"}
+      </div>
 
       {/* Main content */}
       <main className="relative z-10 flex-1 flex gap-4 p-4 overflow-hidden">
@@ -333,39 +226,12 @@ export default function StudentView() {
           ) : (
             <div className="flex h-full items-center justify-center bg-white rounded-xl border border-gray-200">
               <div className="flex flex-col items-center gap-3">
-                <p className="font-[family-name:var(--font-instrument-serif)] text-2xl text-gray-300 animate-pulse">node</p>
+                <p className="font-[family-name:var(--font-instrument-serif)] text-2xl text-gray-300 animate-pulse">Node</p>
                 <p className="text-sm text-gray-400">Loading graph...</p>
               </div>
             </div>
           )}
 
-          {/* Mastery summary pill */}
-          {nodes.length > 0 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
-              <div className="flex items-center gap-3 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
-                  <span className="text-xs font-medium text-gray-600">{masteryCounts.mastered}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#a3e635" }} />
-                  <span className="text-xs font-medium text-gray-600">{masteryCounts.good}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#facc15" }} />
-                  <span className="text-xs font-medium text-gray-600">{masteryCounts.partial}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#fb923c" }} />
-                  <span className="text-xs font-medium text-gray-600">{masteryCounts.struggling}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#94a3b8" }} />
-                  <span className="text-xs font-medium text-gray-600">{masteryCounts.notStarted}</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Side panel */}
@@ -373,14 +239,10 @@ export default function StudentView() {
           <SidePanel
             activePoll={activePoll}
             studentId={studentId}
-            transcriptChunks={transcriptChunks}
             selectedNode={selectedNode}
             onDeselectNode={handleDeselectNode}
             lectureId={lectureId}
             courseId={courseId}
-            lectureEnded={lectureEnded}
-            lectureSummary={lectureSummary}
-            weakConcepts={weakConcepts}
             onStartTutoring={() => router.push(`/student/${studentId}/tutor`)}
             onConceptClick={(conceptId) => {
               const node = nodes.find((n) => n.id === conceptId);

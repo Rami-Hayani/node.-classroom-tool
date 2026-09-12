@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { formatConceptLabel } from "@/lib/concepts";
 
 interface ConceptLearningProps {
   conceptId: string;
@@ -200,7 +201,7 @@ export default function ConceptLearning({
                       <BookOpen className="text-gray-700" size={20} />
                     </div>
                     <div>
-                      <h2 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight">{conceptLabel}</h2>
+                      <h2 className="text-xl font-[family-name:var(--font-instrument-serif)] text-gray-800 tracking-tight">{formatConceptLabel(conceptLabel)}</h2>
                       <p className="text-xs text-gray-500 font-medium">Interactive Learning</p>
                     </div>
                   </div>
