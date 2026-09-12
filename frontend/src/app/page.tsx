@@ -167,12 +167,11 @@ export default function LandingPage() {
         <StarsBackground />
         <div className="relative z-10 flex flex-col items-center px-6">
           <h1
-            className="font-[family-name:var(--font-instrument-serif)] text-7xl sm:text-8xl text-[#ff725f] tracking-tight mb-6 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
-            style={{ letterSpacing: "-0.03em" }}
+            className="font-[family-name:var(--font-instrument-serif)] text-[clamp(7rem,18vw,15rem)] leading-[0.7] text-[#ff725f] tracking-[-0.06em] mb-10 animate-[fadeInUp_0.7s_ease-out_0.1s_both]"
           >
             node
           </h1>
-          <p className="text-lg sm:text-2xl text-gray-600 tracking-tight mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
+          <p className="max-w-[min(90vw,52rem)] text-base sm:text-xl lg:text-2xl text-gray-600 tracking-tight text-center mb-12 animate-[fadeInUp_0.7s_ease-out_0.25s_both] font-light">
             Know what your class understands and what to teach next.
           </p>
           <button
