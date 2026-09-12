@@ -61,9 +61,9 @@ export default function StudentView() {
     for (const n of nodes) {
       const c = n.confidence ?? 0;
       if (c === 0) counts.notStarted++;
-      else if (c < 0.25) counts.struggling++;
-      else if (c < 0.5) counts.partial++;
-      else if (c <= 0.75) counts.good++;
+      else if (c < 0.4) counts.struggling++;
+      else if (c < 0.55) counts.partial++;
+      else if (c < 0.7) counts.good++;
       else counts.mastered++;
     }
     return counts;

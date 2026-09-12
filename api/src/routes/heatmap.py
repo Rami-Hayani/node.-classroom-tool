@@ -30,7 +30,7 @@ def get_heatmap(course_id):
         return jsonify({"concepts": [], "total_students": total_students}), 200
 
     concept_ids = [c['id'] for c in concepts]
-    lecture_ids = [l['id'] for l in supabase.table('lectures').select('id').eq('course_id', course_id).execute().data]
+    lecture_ids = [l['id'] for l in supabase.table('lecture_sessions').select('id').eq('course_id', course_id).execute().data]
     polls = supabase.table('poll_questions').select('id, concept_id').in_('lecture_id', lecture_ids).in_('concept_id', concept_ids).execute().data if lecture_ids else []
     poll_ids = [p['id'] for p in polls]
     poll_concepts = {p['id']: p.get('concept_id') for p in polls}

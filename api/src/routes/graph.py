@@ -45,7 +45,7 @@ def get_graph(course_id):
 
     # Add mastery if student_id provided
     if student_id:
-        lecture_ids = [l['id'] for l in supabase.table('lectures').select('id').eq('course_id', course_id).execute().data]
+        lecture_ids = [l['id'] for l in supabase.table('lecture_sessions').select('id').eq('course_id', course_id).execute().data]
         poll_ids = supabase.table('poll_questions').select('id, concept_id').in_(
             'lecture_id', lecture_ids
         ).execute().data if lecture_ids else []

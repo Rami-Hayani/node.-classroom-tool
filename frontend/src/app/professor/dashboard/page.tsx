@@ -227,13 +227,13 @@ export default function ProfessorDashboard() {
     for (const edge of graphEdges) {
       if (edge.target === activeConceptId) {
         const source = classNodes.find((node) => node.id === edge.source);
-        if (source && (source.avgConfidence ?? 0) < 0.5) weak.add(source.id);
+        if (source && (source.avgConfidence ?? 0) < 0.55) weak.add(source.id);
       }
     }
     return weak;
   }, [activeConceptId, graphEdges, classNodes]);
   const splitConceptIds = useMemo(() => new Set(classNodes.filter((node) => node.splitClass).map((node) => node.id)), [classNodes]);
-  const strugglingConceptIds = classNodes.filter((node) => (node.avgConfidence ?? 0) > 0 && (node.avgConfidence ?? 0) < 0.5).map((node) => node.id);
+  const strugglingConceptIds = classNodes.filter((node) => (node.avgConfidence ?? 0) < 0.55).map((node) => node.id);
 
   function handleCourseChange(nextCourseId: string) {
     const selected = authCourses.find((course) => course.id === nextCourseId);
