@@ -186,9 +186,6 @@ export default function LandingPage() {
             Know what your class understands and what to teach next.
           </p>
           <button
-            data-circuit-anchor="cta"
-            data-circuit-order="2"
-            data-circuit-side="top"
             onClick={() => setShowAuth(true)}
             className="px-12 py-4 rounded-full border border-[#286da8]/80 text-gray-700 font-medium text-base hover:bg-[#286da8] hover:text-white hover:border-[#286da8] active:scale-[0.97] transition-all duration-300 animate-[fadeInUp_0.7s_ease-out_0.4s_both]"
           >
