@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { COLOR_HEX } from "@/lib/colors";
 import { flaskApi, nextApi } from "@/lib/api";
 import { useSocketEvent } from "@/lib/socket";
@@ -23,12 +23,14 @@ interface PollControlsProps {
   selectedNodeId?: string | null;
   connectedStudentCount?: number;
   followUpRequest?: { conceptId: string; nonce: number } | null;
+  externalPoll?: { pollId: string; question: string; conceptId: string; conceptLabel: string; status: "preview" | "active" | "closed"; misconceptionSummary?: string; totalResponses?: number; results?: PollState["results"] } | null;
   onConceptSelected?: (conceptId: string) => void;
+  onGradeSaved?: () => void | Promise<void>;
   onPollActivated?: (poll: { pollId: string; conceptId: string; conceptLabel: string }) => void;
   onPollClosed?: (poll: { pollId: string; conceptId: string; conceptLabel: string; misconceptionSummary?: string }) => void;
 }
 
-export default function PollControls({ lectureId, concepts, activeConceptId, selectedNodeId, connectedStudentCount = 0, followUpRequest, onConceptSelected, onPollActivated, onPollClosed }: PollControlsProps) {
+export default function PollControls({ lectureId, concepts, activeConceptId, selectedNodeId, connectedStudentCount = 0, followUpRequest, externalPoll, onConceptSelected, onGradeSaved, onPollActivated, onPollClosed }: PollControlsProps) {
   const [poll, setPoll] = useState<PollState>({
     pollId: null,
     question: null,
@@ -43,6 +45,9 @@ export default function PollControls({ lectureId, concepts, activeConceptId, sel
   const [responses, setResponses] = useState<PollResponse[]>([]);
   const [responseRefresh, setResponseRefresh] = useState(0);
   const [showResponses, setShowResponses] = useState(true);
+  const [savingGrade, setSavingGrade] = useState<string | null>(null);
+  const [responseError, setResponseError] = useState<string | null>(null);
+  const [gradeError, setGradeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedNodeId && concepts.some((c) => c.id === selectedNodeId)) {
@@ -62,27 +67,88 @@ export default function PollControls({ lectureId, concepts, activeConceptId, sel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followUpRequest?.nonce]);
 
-  useSocketEvent<{ pollId: string }>("poll:response-received", (data) => {
-    setPoll((current) => current.pollId === data.pollId
-      ? { ...current, totalResponses: current.totalResponses + 1 }
-      : current);
+  useEffect(() => {
+    if (!externalPoll) return;
+    setSelectedConceptId(externalPoll.conceptId);
+    setPoll({
+      pollId: externalPoll.pollId,
+      question: externalPoll.question,
+      conceptLabel: externalPoll.conceptLabel,
+      status: externalPoll.status,
+      results: externalPoll.results || null,
+      totalResponses: externalPoll.totalResponses || 0,
+    });
+  }, [externalPoll]);
+
+  const refreshResponses = useCallback(async (pollId: string) => {
+    try {
+      const data = await flaskApi.get(`/api/polls/${pollId}/responses`);
+      const nextResponses = Array.isArray(data) ? data as PollResponse[] : [];
+      setResponses(nextResponses);
+      setResponseError(null);
+      setPoll((current) => current.pollId === pollId
+        ? { ...current, totalResponses: nextResponses.length }
+        : current);
+    } catch (error) {
+      console.error("Failed to load poll responses:", error);
+      setResponseError("Responses are temporarily unavailable. Retrying…");
+    }
+  }, []);
+
+  useSocketEvent<{ pollId: string; studentId: string; responseId?: string; answer?: string; evaluation?: PollResponse["evaluation"] }>("poll:response-received", (data) => {
+    if (poll.pollId !== data.pollId) return;
+    const answer = data.answer;
+    if (answer) {
+      setResponses((current) => {
+        if (data.responseId && current.some((response) => response.id === data.responseId)) return current;
+        return [...current, {
+          id: data.responseId || `${data.pollId}-${data.studentId}`,
+          student_id: data.studentId,
+          answer,
+          evaluation: data.evaluation,
+        }];
+      });
+    }
     setResponseRefresh((value) => value + 1);
   });
 
   useEffect(() => {
     if (!poll.pollId || (poll.status !== "active" && poll.status !== "closed")) {
       setResponses([]);
+      setResponseError(null);
       return;
     }
-    flaskApi.get(`/api/polls/${poll.pollId}/responses`)
-      .then((data) => setResponses((data as PollResponse[]) || []))
-      .catch(() => setResponses([]));
-  }, [poll.pollId, poll.status, responseRefresh]);
+    const currentPollId = poll.pollId;
+    void refreshResponses(currentPollId);
+
+    // Keep a fallback refresh while active. This covers a reconnect or a
+    // missed Socket.IO event and ensures the professor always sees stored data.
+    if (poll.status !== "active") return;
+    const interval = window.setInterval(() => void refreshResponses(currentPollId), 2000);
+    return () => window.clearInterval(interval);
+  }, [poll.pollId, poll.status, responseRefresh, refreshResponses]);
+
+  async function saveGrade(response: PollResponse, value: string) {
+    const score = Number(value);
+    if (!Number.isFinite(score) || score < 0 || score > 100) return;
+    if (!poll.pollId) return;
+    setSavingGrade(response.id);
+    setGradeError(null);
+    try {
+      await flaskApi.put(`/api/polls/${poll.pollId}/responses/${response.id}/grade`, { score });
+      setResponses((current) => current.map((item) => item.id === response.id ? { ...item, evaluation: { ...(item.evaluation || {}), score } } : item));
+      await onGradeSaved?.();
+    } catch (error) {
+      console.error("Failed to save grade:", error);
+      setGradeError(error instanceof Error ? error.message : "Could not save grade. Please try again.");
+    } finally { setSavingGrade(null); }
+  }
 
   function responseList() {
+    if (responseError) return <p className="mt-2 text-xs text-amber-600">{responseError}</p>;
     if (!responses.length) return <p className="mt-2 text-xs italic text-gray-400">No responses yet.</p>;
     if (!showResponses) return null;
-    return <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2">{responses.map((response) => <div key={response.id} className="rounded-lg bg-white p-2 text-xs"><div className="flex justify-between gap-2"><span className="font-medium text-gray-600">{response.student_name || `Student ${response.student_id.slice(0, 6)}`}</span>{typeof response.evaluation?.score === "number" && <span className="font-semibold text-gray-700">{Math.round(response.evaluation.score)}%</span>}</div><p className="mt-1 text-gray-500">{response.answer}</p></div>)}</div>;
+    return <div className="mt-2 max-h-64 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50 p-2">{responses.map((response) => <div key={response.id} className="rounded-lg bg-white p-2 text-xs"><div className="flex justify-between gap-2"><span className="font-medium text-gray-600">{response.student_name || `Student ${response.student_id.slice(0, 6)}`}</span><div className="flex items-center gap-1"><input aria-label={`Grade for ${response.student_name || response.student_id}`} defaultValue={Math.round(response.evaluation?.score ?? 0)} type="number" min="0" max="100" onBlur={(event) => void saveGrade(response, event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }} className="w-14 rounded border border-gray-200 px-1.5 py-1 text-right text-xs" /><span className="text-[10px] text-gray-400">%</span></div></div><p className="mt-1 text-gray-500">{response.answer}</p>{savingGrade === response.id && <p className="mt-1 text-[10px] text-blue-500">Saving…</p>}</div>)}{gradeError && <p className="px-1 py-1 text-[10px] text-red-500">{gradeError}</p>}</div>;
   }
 
   function responseHeader() {

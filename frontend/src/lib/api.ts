@@ -1,4 +1,23 @@
+import { supabaseBrowser } from "@/lib/supabase-browser";
+
 const FLASK_API_URL = process.env.NEXT_PUBLIC_FLASK_API_URL || "http://localhost:5000";
+
+async function getAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  if (supabaseBrowser) {
+    try {
+      const { data } = await supabaseBrowser.auth.getSession();
+      const sessionToken = data.session?.access_token || null;
+      if (sessionToken) {
+        localStorage.setItem("token", sessionToken);
+        return sessionToken;
+      }
+    } catch {
+      // Fall back to the legacy token mirror below.
+    }
+  }
+  return localStorage.getItem("token");
+}
 
 export type LectureDeck = {
   id: string;
@@ -25,8 +44,8 @@ async function request<T = any>(baseUrl: string, path: string, options?: Request
     ...((options?.headers as Record<string, string>) || {}),
   };
 
-  // Inject auth header from localStorage token
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  // Use the mirrored token or recover the active Supabase session token.
+  const token = await getAccessToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -54,7 +73,7 @@ export const flaskApi = {
     request(FLASK_API_URL, path, { method: "PUT", body: JSON.stringify(body) }),
   uploadDeck: async (courseId: string, file: File) => {
     const headers: Record<string, string> = { "ngrok-skip-browser-warning": "1" };
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token = await getAccessToken();
     if (token) headers.Authorization = `Bearer ${token}`;
     const form = new FormData();
     form.append("file", file);

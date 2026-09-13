@@ -33,6 +33,7 @@ interface KnowledgeGraphProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   activeConceptId?: string | null;
+  focusNodeId?: string | null;
   highlightedNodeIds?: Set<string>;
   weakPrerequisiteIds?: Set<string>;
   splitConceptIds?: Set<string>;
@@ -82,6 +83,7 @@ export default function KnowledgeGraph({
   nodes,
   edges,
   activeConceptId,
+  focusNodeId,
   highlightedNodeIds,
   onNodeClick,
   weakPrerequisiteIds,
@@ -117,6 +119,7 @@ export default function KnowledgeGraph({
   simNodesRef.current = simNodes;
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
+  const lastFocusedNodeRef = useRef<string | null>(null);
 
   // Initialize data and compute topological levels for left-to-right layout
   useEffect(() => {
@@ -285,6 +288,27 @@ export default function KnowledgeGraph({
     });
     return map;
   }, [simNodes]);
+
+  // External selections (for example, the professor's poll concept picker)
+  // use the same smooth center-and-zoom behavior as clicking a node.
+  useEffect(() => {
+    if (!focusNodeId) {
+      lastFocusedNodeRef.current = null;
+      return;
+    }
+    if (lastFocusedNodeRef.current === focusNodeId || !bounds.width || !bounds.height) return;
+    const node = simNodes.find((item) => item.id === focusNodeId);
+    if (!node || node.x == null || node.y == null) return;
+    const targetZoom = 1.35;
+    const centerX = bounds.width / 2;
+    const centerY = bounds.height / 2;
+    setZoom(targetZoom);
+    setPan({
+      x: centerX - node.x * targetZoom - centerX * (1 - targetZoom),
+      y: centerY - node.y * targetZoom - centerY * (1 - targetZoom),
+    });
+    lastFocusedNodeRef.current = focusNodeId;
+  }, [focusNodeId, bounds.width, bounds.height, simNodes]);
 
   // Zoom handler (wheel)
   const handleWheel = useCallback((e: React.WheelEvent) => {

@@ -175,6 +175,9 @@ router.post("/api/polls/:pollId/respond", json(), async (req, res) => {
     emitToProfessor(poll.lecture_id, "poll:response-received", {
       pollId,
       studentId,
+      responseId: (storedResponse as { id?: string }).id,
+      answer,
+      evaluation,
     });
 
     console.log(`[poll-respond] Success - emitted updates to student and professor`);

@@ -35,11 +35,13 @@ def confidence_to_color(confidence):
 def get_graph(course_id):
     student_id = request.args.get('student_id')
 
-    # Check Redis cache
+    # Student graph responses can use the short-lived cache. Professor class
+    # mastery must stay live as poll responses arrive, so it always recomputes.
     cache_key = f"graph:{course_id}:{student_id or 'none'}"
-    hit = cache_get(cache_key)
-    if hit is not None:
-        return jsonify(hit), 200
+    if student_id:
+        hit = cache_get(cache_key)
+        if hit is not None:
+            return jsonify(hit), 200
 
     nodes = supabase.table('concept_nodes').select('*').eq('course_id', course_id).execute().data
     edges = supabase.table('concept_edges').select('*').eq('course_id', course_id).execute().data
@@ -110,7 +112,8 @@ def get_graph(course_id):
 
     result = {'nodes': nodes, 'edges': edges}
     # Cache with student mastery for 10s, without for 60s (structure changes rarely)
-    cache_set(cache_key, result, ttl_seconds=10 if student_id else 60)
+    if student_id:
+        cache_set(cache_key, result, ttl_seconds=10)
     return jsonify(result), 200
 
 

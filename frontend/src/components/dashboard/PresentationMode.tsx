@@ -19,10 +19,11 @@ interface PresentationModeProps {
   onDeckSelect: (deck: LectureDeck) => void;
   onUploadFile: (file: File) => void;
   onRefreshMastery?: () => void | Promise<void>;
+  onPollSync?: (poll: { pollId: string; question: string; conceptId: string; conceptLabel: string; status: "preview" | "active" | "closed"; misconceptionSummary?: string; totalResponses?: number; results?: { green: number; yellow: number; orange: number; red: number } | null }) => void;
   onClose: () => void;
 }
 
-export default function PresentationMode({ lectureId, deck, slides, availableDecks, concepts, currentSlideIndex, onSlideChange, onDeckSelect, onUploadFile, onRefreshMastery, onClose }: PresentationModeProps) {
+export default function PresentationMode({ lectureId, deck, slides, availableDecks, concepts, currentSlideIndex, onSlideChange, onDeckSelect, onUploadFile, onRefreshMastery, onPollSync, onClose }: PresentationModeProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState(false);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -56,7 +57,9 @@ export default function PresentationMode({ lectureId, deck, slides, availableDec
         slideTitle: slide.title,
         slideText: slide.content,
       });
-      setQuestion({ pollId: result.pollId, question: result.question, status: "preview" });
+      const nextQuestion = { pollId: result.pollId, question: result.question, status: "preview" as const };
+      setQuestion(nextQuestion);
+      onPollSync?.({ ...nextQuestion, conceptId: concept.id, conceptLabel: concept.label });
     } catch (error) {
       setPollError(error instanceof Error ? error.message : "Could not generate a question");
     } finally { setGenerating(false); }
@@ -67,14 +70,29 @@ export default function PresentationMode({ lectureId, deck, slides, availableDec
     try {
       await nextApi.post(`/api/lectures/${lectureId}/poll/${question.pollId}/activate`, {});
       setQuestion({ ...question, status: "active" });
+      onPollSync?.({ ...question, conceptId: concept?.id || "", conceptLabel: concept?.label || "", status: "active" });
     } catch (error) { setPollError(error instanceof Error ? error.message : "Could not send the question"); }
   }
 
   async function closePoll() {
     if (!lectureId || !question) return;
     try {
-      await nextApi.post(`/api/lectures/${lectureId}/poll/${question.pollId}/close`, {});
+      const result = await nextApi.post(`/api/lectures/${lectureId}/poll/${question.pollId}/close`, {});
       setQuestion({ ...question, status: "closed" });
+      onPollSync?.({
+        ...question,
+        conceptId: concept?.id || "",
+        conceptLabel: concept?.label || "",
+        status: "closed",
+        misconceptionSummary: result.misconceptionSummary,
+        totalResponses: result.totalResponses || 0,
+        results: result.distribution ? {
+          green: result.distribution.green || 0,
+          yellow: result.distribution.yellow || 0,
+          orange: result.distribution.orange || 0,
+          red: result.distribution.red || 0,
+        } : null,
+      });
       await onRefreshMastery?.();
     } catch (error) { setPollError(error instanceof Error ? error.message : "Could not close the poll"); }
   }

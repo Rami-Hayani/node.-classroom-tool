@@ -49,6 +49,7 @@ export default function ProfessorDashboard() {
   const [responseRefresh, setResponseRefresh] = useState(0);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<Set<string>>(new Set());
   const [presentationOpen, setPresentationOpen] = useState(false);
+  const [presentationPoll, setPresentationPoll] = useState<{ pollId: string; question: string; conceptId: string; conceptLabel: string; status: "preview" | "active" | "closed"; misconceptionSummary?: string; totalResponses?: number; results?: { green: number; yellow: number; orange: number; red: number } | null } | null>(null);
 
   const socket = useSocket();
   const socketReady = useSocketReady();
@@ -88,8 +89,26 @@ export default function ProfessorDashboard() {
     }
     const stored = localStorage.getItem("courseId");
     if (stored && !stored.startsWith("demo-")) {
-      setCourseId(stored);
-      void ensureJoinCode(stored);
+      // Validate stale local storage before committing to it. A previous
+      // course/session can otherwise leave the dashboard stuck on an invalid
+      // ID with an "Unavailable" join code.
+      flaskApi.get(`/api/courses/${stored}`)
+        .then((course: { id: string; join_code?: string }) => {
+          setCourseId(course.id);
+          void ensureJoinCode(course.id, course.join_code);
+        })
+        .catch(() => {
+          localStorage.removeItem("courseId");
+          flaskApi.get("/api/courses")
+            .then((courses: { id: string; join_code?: string }[]) => {
+              const first = courses[0];
+              if (!first) return;
+              setCourseId(first.id);
+              void ensureJoinCode(first.id, first.join_code);
+              localStorage.setItem("courseId", first.id);
+            })
+            .catch(() => {});
+        });
       return;
     }
     flaskApi
@@ -301,7 +320,14 @@ export default function ProfessorDashboard() {
 
   useSocketEvent<{ pollId: string; studentId: string }>(
     "poll:response-received",
-    useCallback(() => setResponseRefresh((value) => value + 1), []),
+    useCallback(() => {
+      setResponseRefresh((value) => value + 1);
+      if (!courseId) return;
+      flaskApi
+        .get(`/api/courses/${courseId}/graph`)
+        .then((data: { nodes: GraphNode[] }) => setGraphNodes(data.nodes || []))
+        .catch(() => {});
+    }, [courseId]),
   );
 
   const classNodes = useMemo(() => graphNodes.map((node) => {
@@ -345,17 +371,16 @@ export default function ProfessorDashboard() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#fafafa] relative overflow-hidden">
+    <div className="flex h-screen flex-col bg-black relative overflow-hidden">
 
       {/* Header */}
-      <header className="relative z-10 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-gray-200/80 px-5 h-14">
+      <header className="relative z-10 flex items-center justify-between bg-black px-5 h-14 text-white">
         <div className="flex items-center gap-4">
-          <h1 className="font-[family-name:var(--font-geist-sans)] font-medium text-xl text-gray-800 tracking-tight">
+          <h1 className="font-[family-name:var(--font-geist-sans)] font-medium text-xl text-white tracking-tight">
             node.
           </h1>
-          <span className="text-sm text-gray-400 font-light">Live Class Understanding Map</span>
           {authCourses.length > 0 && (
-            <select value={courseId || authCourses[0].id} onChange={(event) => handleCourseChange(event.target.value)} className="max-w-[220px] rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-sm">
+            <select value={courseId || authCourses[0].id} onChange={(event) => handleCourseChange(event.target.value)} className="max-w-[220px] rounded-lg border border-white/20 bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm outline-none">
               {authCourses.map((course) => <option key={course.id} value={course.id}>{course.name}</option>)}
             </select>
           )}
@@ -377,11 +402,11 @@ export default function ProfessorDashboard() {
                 setTimeout(() => setCodeCopied(false), 2000);
               }}
               disabled={!joinCode}
-              className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:cursor-wait disabled:opacity-70"
+              className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-400/15 border border-indigo-300/30 hover:bg-indigo-400/25 transition-colors disabled:cursor-wait disabled:opacity-70"
               title="Click to copy the student join code"
             >
-              <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">Join code</span>
-              <span className="text-xs font-bold text-indigo-800 tracking-widest font-mono">
+              <span className="text-[10px] font-semibold text-indigo-200 uppercase tracking-wider">Join code</span>
+              <span className="text-xs font-bold text-white tracking-widest font-mono">
                 {codeCopied ? "Copied!" : joinCode || (joinCodeLoading ? "Loading…" : "Unavailable")}
               </span>
             </button>
@@ -393,7 +418,7 @@ export default function ProfessorDashboard() {
               size="sm"
               onClick={handleStartClass}
               disabled={!courseId || classStarting}
-              className="bg-gray-800 text-white hover:bg-gray-700 transition-all duration-200"
+              className="bg-white text-black hover:bg-gray-200 transition-all duration-200"
             >
               {classStarting ? "Starting..." : "Start Class"}
             </Button>
@@ -402,7 +427,7 @@ export default function ProfessorDashboard() {
             size="sm"
             variant="outline"
             onClick={() => setPresentationOpen(true)}
-            className="border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="border-white/20 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white"
           >
             {slides.length ? "Resume Presentation" : "Start Presentation"}
           </Button>
@@ -411,7 +436,7 @@ export default function ProfessorDashboard() {
             variant="ghost"
             onClick={handleEndClass}
             disabled={!lectureId || classEnding}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-white/55 hover:bg-white/10 hover:text-white"
             title="End Class"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -425,7 +450,7 @@ export default function ProfessorDashboard() {
                 await signOut();
                 router.push("/");
               }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-white/55 hover:bg-white/10 hover:text-white"
             >
               Sign out
             </Button>
@@ -433,17 +458,40 @@ export default function ProfessorDashboard() {
         </div>
       </header>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3">
+      <div className="relative z-10 mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[26px] border-[3px] border-black bg-white shadow-[0_12px_30px_rgba(22,42,55,0.12)] sm:mx-5 sm:mb-5">
+      <div className="flex h-9 shrink-0 items-center justify-center gap-1.5 border-b border-gray-200/80 bg-white text-[11px] text-gray-400">
+        <span className={`h-1.5 w-1.5 rounded-full ${lectureId ? "bg-red-500 animate-pulse" : "bg-gray-400"}`} />
+        {lectureId ? "Live lecture" : "Waiting for class"}
+      </div>
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-3 overflow-auto bg-white p-3">
         {!lectureId && <section className="rounded-2xl border border-dashed border-gray-300 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Today&apos;s lecture</p><p className="mt-1 text-sm text-gray-600">Upload today&apos;s lecture slides.</p>{deck && <p className="mt-2 text-xs text-gray-500">Selected deck: <span className="font-semibold text-indigo-700">{deck.filename}</span> · {slides.length} slides</p>}{deckError && <p className="mt-2 text-xs text-amber-600">{deckError}</p>}</div><label className={`cursor-pointer rounded-xl bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 ${deckLoading ? "pointer-events-none opacity-50" : ""}`}>{deckLoading ? "Reading slides…" : "Upload Slides"}<input type="file" accept=".pptx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" onChange={handleDeckUpload} /></label></div>{availableDecks.length > 0 && <div className="mt-4 border-t border-gray-100 pt-3"><p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Past lecture slides · choose one to preview</p><div className="mt-2 flex flex-wrap gap-2">{availableDecks.map((item) => { const selected = deck?.id === item.id; return <button key={item.id} type="button" onClick={() => handleDeckSelect(item)} className={`rounded-lg border px-3 py-2 text-left text-xs transition-colors ${selected ? "border-indigo-400 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-100" : "border-gray-200 bg-gray-50 text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/50"}`}><span className="flex items-center gap-2"><span className="block max-w-[240px] truncate font-medium">{item.filename}</span>{selected && <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">Selected</span>}</span><span className="mt-0.5 block text-[10px] text-gray-400">{item.created_at ? new Date(item.created_at).toLocaleDateString() : "Uploaded lecture"}</span></button>; })}</div></div>}</section>}
         {lectureId && deck && slides.length > 0 && <div className="hidden" aria-hidden="true"><LectureDeckViewer deck={deck} slides={slides} currentSlideIndex={currentSlideIndex} onSlideChange={setCurrentSlideIndex} concepts={classNodes} /></div>}
         <div className="flex min-h-[440px] min-w-0 flex-1 gap-3">
         <section className="flex min-h-0 min-w-0 flex-[4] flex-col rounded-2xl border border-gray-200/80 bg-white p-3">
             <div className="px-2 pb-2"><h2 className="text-sm font-semibold text-gray-800">Class Understanding Map</h2><p className="text-xs text-gray-400">Mastery is shown directly on the prerequisite graph. Click a concept for student-level evidence.</p></div>
-            <div className="min-h-0 flex-1"><KnowledgeGraph nodes={classNodes} edges={graphEdges} mode="professor" activeConceptId={activeConceptId} highlightedNodeIds={highlightedNodeIds} weakPrerequisiteIds={weakPrerequisiteIds} splitConceptIds={splitConceptIds} onNodeClick={(node) => { setManualConceptSelection(true); setSelectedConceptId(node.id); const ancestors = getAncestors(node.id, graphEdges); ancestors.add(node.id); setHighlightedNodeIds(ancestors); }} /></div>
+            <div className="min-h-0 flex-1"><KnowledgeGraph nodes={classNodes} edges={graphEdges} mode="student" activeConceptId={activeConceptId} focusNodeId={selectedConceptId} highlightedNodeIds={highlightedNodeIds} weakPrerequisiteIds={weakPrerequisiteIds} splitConceptIds={splitConceptIds} onNodeClick={(node) => { setManualConceptSelection(true); setSelectedConceptId(node.id); const ancestors = getAncestors(node.id, graphEdges); ancestors.add(node.id); setHighlightedNodeIds(ancestors); }} /></div>
         </section>
         <aside className="flex min-h-0 min-w-0 flex-[3] flex-col gap-3 overflow-y-auto"><ConceptInsightPanel courseId={courseId} concept={selectedConcept} refreshKey={responseRefresh} /><ClassInsightCard rootCause={diagnostic?.root_cause || null} misconception={misconception} splitClass={Boolean(selectedConcept?.splitClass)} onAskDiagnostic={() => { if (diagnostic?.root_cause) { setActiveConceptId(diagnostic.root_cause.concept_id); setFollowUpRequest({ conceptId: diagnostic.root_cause.concept_id, nonce: Date.now() }); } }} /><InterventionPanel lectureId={lectureId} conceptIds={strugglingConceptIds.slice(0, 5)} triggerVersion={interventionTrigger} /></aside>
-        <aside className="min-h-0 min-w-0 flex-[3] overflow-y-auto"><PollControls lectureId={lectureId} concepts={classNodes.map((c) => ({ id: c.id, label: formatConceptLabel(c.label) }))} activeConceptId={activeConceptId} selectedNodeId={selectedConceptId} connectedStudentCount={connectedStudentCount} followUpRequest={followUpRequest} onConceptSelected={() => setManualConceptSelection(true)} onPollActivated={(poll) => { setManualConceptSelection(true); setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }} onPollClosed={(poll) => { setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); setMisconception(poll.misconceptionSummary); setInterventionTrigger((value) => value + 1); nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null)); }} /></aside>
+        <aside className="min-h-0 min-w-0 flex-[3] overflow-y-auto"><PollControls lectureId={lectureId} concepts={classNodes.map((c) => ({ id: c.id, label: formatConceptLabel(c.label) }))} activeConceptId={activeConceptId} selectedNodeId={selectedConceptId} connectedStudentCount={connectedStudentCount} followUpRequest={followUpRequest} externalPoll={presentationPoll} onConceptSelected={(conceptId) => {
+          setManualConceptSelection(true);
+          setActiveConceptId(conceptId);
+          setSelectedConceptId(conceptId);
+          const ancestors = getAncestors(conceptId, graphEdges);
+          ancestors.add(conceptId);
+          setHighlightedNodeIds(ancestors);
+        }} onGradeSaved={async () => {
+          setResponseRefresh((value) => value + 1);
+          if (!courseId) return;
+          const [graph, heatmap] = await Promise.all([
+            flaskApi.get(`/api/courses/${courseId}/graph`),
+            flaskApi.get(`/api/courses/${courseId}/heatmap`),
+          ]) as [{ nodes: GraphNode[] }, { concepts: HeatmapConcept[]; total_students: number }];
+          setGraphNodes(graph.nodes || []);
+          setHeatmapData(heatmap.concepts || []);
+          setTotalStudents(heatmap.total_students || 0);
+        }} onPollActivated={(poll) => { setPresentationPoll(null); setManualConceptSelection(true); setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); }} onPollClosed={(poll) => { setPresentationPoll(null); setActiveConceptId(poll.conceptId); setSelectedConceptId(poll.conceptId); setMisconception(poll.misconceptionSummary); setInterventionTrigger((value) => value + 1); nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null)); }} /></aside>
         </div>
+      </div>
       </div>
 
       {presentationOpen && (
@@ -461,6 +509,16 @@ export default function ProfessorDashboard() {
             if (!courseId) return;
             const data = await flaskApi.get(`/api/courses/${courseId}/graph`) as { nodes: GraphNode[] };
             setGraphNodes(data.nodes || []);
+          }}
+          onPollSync={(poll) => {
+            setPresentationPoll(poll);
+            setActiveConceptId(poll.conceptId);
+            setSelectedConceptId(poll.conceptId);
+            if (poll.status === "closed") {
+              setMisconception(poll.misconceptionSummary);
+              setInterventionTrigger((value) => value + 1);
+              nextApi.get(`/api/polls/${poll.pollId}/diagnostic`).then((data) => setDiagnostic(data)).catch(() => setDiagnostic(null));
+            }
           }}
           onClose={() => setPresentationOpen(false)}
         />

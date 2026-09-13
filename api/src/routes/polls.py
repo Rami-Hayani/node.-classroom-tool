@@ -1,7 +1,8 @@
-from flask import request, jsonify, Blueprint
+from flask import request, jsonify, Blueprint, g
 
 from ..db import supabase
-from ..middleware.auth import optional_auth
+from ..middleware.auth import optional_auth, require_auth
+from ..cache import cache_delete, cache_delete_pattern
 
 polls = Blueprint("polls", __name__)
 
@@ -187,6 +188,70 @@ def get_latest_concept_question(course_id, concept_id):
         row['student_name'] = names.get(row.get('student_id'), 'Student')
         row['score'] = _score_from_evaluation(row.get('evaluation'))
     return jsonify({'question': question, 'responses': responses}), 200
+
+
+@polls.route('/api/polls/<poll_id>/responses/<response_id>/grade', methods=['PUT'])
+@require_auth
+def edit_poll_response_grade(poll_id, response_id):
+    """Allow an authenticated professor to correct a numeric grade and refresh mastery."""
+    teacher = supabase.table('teachers').select('id').eq('auth_id', g.user.get('sub')).execute().data
+    if not teacher:
+        return jsonify({'error': 'Only professors can edit poll grades'}), 403
+    data = request.json or {}
+    try:
+        score = max(0.0, min(100.0, float(data['score'])))
+    except (KeyError, TypeError, ValueError):
+        return jsonify({'error': 'score must be a number from 0 to 100'}), 400
+
+    response_rows = supabase.table('poll_responses').select(
+        'id, student_id, answer, evaluation'
+    ).eq('id', response_id).eq('question_id', poll_id).execute().data
+    poll_rows = supabase.table('poll_questions').select('concept_id, lecture_id').eq('id', poll_id).execute().data
+    if not response_rows or not poll_rows:
+        return jsonify({'error': 'Response or poll not found'}), 404
+
+    response = response_rows[0]
+    evaluation = dict(response.get('evaluation') or {})
+    evaluation['score'] = score
+    evaluation['eval_result'] = 'correct' if score >= 75 else 'partial' if score >= 50 else 'wrong'
+    if data.get('feedback') is not None:
+        evaluation['feedback'] = str(data['feedback'])
+    updated = supabase.table('poll_responses').update({'evaluation': evaluation}).eq('id', response_id).execute()
+
+    concept_id = poll_rows[0].get('concept_id')
+    mastery = None
+    if concept_id and response.get('student_id'):
+        question_rows = supabase.table('poll_questions').select('id').eq('concept_id', concept_id).execute().data
+        question_ids = [row['id'] for row in question_rows]
+        all_responses = supabase.table('poll_responses').select('evaluation').eq(
+            'student_id', response['student_id']
+        ).in_('question_id', question_ids).execute().data if question_ids else []
+        scores = [_score_from_evaluation(row.get('evaluation')) for row in all_responses]
+        confidence = sum(scores) / len(scores) / 100 if scores else 0
+        mastery_rows = supabase.table('student_mastery').select('id').eq(
+            'student_id', response['student_id']
+        ).eq('concept_id', concept_id).execute().data
+        if mastery_rows:
+            supabase.table('student_mastery').update({
+                'confidence': confidence, 'attempts': len(scores)
+            }).eq('id', mastery_rows[0]['id']).execute()
+            mastery = {'confidence': confidence, 'attempts': len(scores)}
+
+    # Clear cached class views so corrected grades appear immediately.
+    lecture_id = poll_rows[0].get('lecture_id')
+    if lecture_id:
+        lecture_rows = supabase.table('lecture_sessions').select('course_id').eq('id', lecture_id).execute().data
+        if lecture_rows:
+            course_id = lecture_rows[0].get('course_id')
+            if course_id:
+                cache_delete(f'heatmap:{course_id}')
+                cache_delete_pattern(f'graph:{course_id}:*')
+
+    return jsonify({
+        'response': updated.data[0] if updated.data else {'id': response_id, 'evaluation': evaluation},
+        'score': score,
+        'mastery': mastery,
+    }), 200
 
 
 @polls.route('/api/polls/<poll_id>/diagnostic', methods=['GET'])
